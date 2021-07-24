@@ -1,5 +1,4 @@
-import crcmod.predefined
-from binascii import unhexlify
+import serial
 #data_in = "9a88648484a660ac8462849eb0f2ac8462"
 #test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d  ### I Frame
 # 9a88648484a6e09a8864a682ae60868460a682aee1 Rest 40f0620d
@@ -7,8 +6,12 @@ from binascii import unhexlify
 test_data_in = "ae 8aa8 a88a a4e0 8684 60a6 82ae 7c86 8460 a682 ae67 03f0 3c20 5765 7474 6572 2053 616c 7a77 6564 656c 204a 4f35 324e 5520 3e0d 0a20 5465 6d70 2e3a 2020 3231 2e30 2020 430d 0a20 4c75 6674 6472 7563 6b3a 2020 3130 3136 2e36 3731 3220 2068 5061 0d0a 204c 7566 7466 6575 6368 7469 676b 6569 743a 2020 3534 2e38 2020 25"
 test_data_in_b = b"ae8aa8a88aa4e0868460a682ae7c868460a682ae6703f03c205765747465722053616c7a776564656c204a4f35324e55203e0d0a2054656d702e3a202032312e302020430d0a204c756674647275636b3a2020313031362e3637313220206850610d0a204c75667466657563687469676b6569743a202035342e38202025"
 # CB0SAW-14 to WETTER via CB0SAW-3 ctl UI^ pid=F0(Text) len 103
+test_data_in = "9a8864a682aee088b060a682ae60868460a682ae61" #cf0445830534157202831313a3530293e"
+test_data_in = "9a8864a682aee088b060a682ae60868460a682ae61e8" #cf0445830534157202831313a3530293e"
 test_data_in = test_data_in.replace(" ", "")
 
+ser_port = "/tmp/ptyAX5"
+ser_baud = 9600
 
 def decode_ax25_header(data_in):
     ret = {
@@ -81,7 +84,7 @@ def decode_ax25_header(data_in):
             elif ss_bits == '01':                                       # Nicht empfangsbereit RNRR
                 ctl_str = "RNRR" + bl2str(pf)                                       # P/F Bit add +/-
             elif ss_bits == '10':                                       # Wiederholungsaufforderung REJ
-                ctl_str = "REJ" + bl2str(pf)                                        # P/F Bit add +/-
+                ctl_str = "REJ" + str(nr) + bl2str(pf)                              # P/F Bit add +/-
             else:
                 ctl_str = "S-UNKNOW"
 
@@ -156,15 +159,15 @@ def decode_ax25_header(data_in):
 
 
         # data = data_in[:-2]
-        crc_clc = crc16(test_data_in[:-4].encode())
+        crc_clc = crc16(data_in[:-2])
         # crc = crc16("123456789".encode())
         print(crc_clc)
         print(str(hex(crc_clc)))
 
         print("CRC Bytes in: " + str(fcs))
         print("CRC len in: " + str(len(fcs)))
-        print("CRC Int in: " + str(int(fcs.encode(), 16)))
-        print("CRC: " + str(bin(int(fcs[0:2], 32))[2:]) + str(bin(int(fcs[2:], 32))[2:]))
+        #print("CRC Int in: " + str(int(fcs, 16)))
+        #print("CRC: " + str(bin(int(fcs[0:2], 32))[2:]) + str(bin(int(fcs[2:], 32))[2:]))
         print(bin(crc_clc)[2:])
         # print("CRC: " + str(int(fcs, 32)))
         print(test_data_in.encode())
@@ -178,9 +181,8 @@ def decode_ax25_header(data_in):
     keys = ["TO", "FROM"]
     end = False
     ctl = ()
-    fcs = ""
-
-    for i in bytes.fromhex(data_in):
+    print(data_in)
+    for i in data_in:
         byte_count += 1
         if not end:                                         # decode Address fields
             if byte_count != 7:                             # 7 Byte Address Chars
@@ -209,24 +211,41 @@ def decode_ax25_header(data_in):
             if byte_count == 1:     # Control Byte
                 ctl = decode_c_byte(conv_hex(i))
                 ret['ctl'] = ctl
-                tmp_str += "  Control: " + str(hex(i)) + " C-Bits: " + str(bin(int(conv_hex(i)))[2:].zfill(8)) + " "
+                # tmp_str += "  Control: " + str(hex(i)) + " C-Bits: " + str(bin(int(conv_hex(i)))[2:].zfill(8)) + " "
             # tmp_str += str(conv_hex(i))
             elif byte_count == 2:   # PID Byte in UI and I Frames
                 if ctl[1][-2]:
                     ret["pid"] = decode_pid_byte(conv_hex(i))
+                else:
+                    tmp_str += conv_hex(i)
+            else:
+                tmp_str += conv_hex(i)
 
-    calc_fcs(data_in[-4:])
-    '''
-    elif byte_count in [3, 4] and not ctl[1][-2]:   # FCS in not UI or I Frame
-        fcs += conv_hex(i)
-        if byte_count == 4:
-            calc_fcs(fcs)
-    '''
+    calc_fcs(data_in[-2:])
 
-    print("RES: " + address_str + tmp_str)
+    print("RES: " + address_str + "-> " + bytearray.fromhex(tmp_str).decode())
     return address_str, ret
 
 
-print(decode_ax25_header(test_data_in))
+def read_kiss():
+    pack = b''
+    ser = serial.Serial(ser_port, ser_baud, timeout=900)
+    while True:
+        b = ser.read()
+        #b = hex(b[0])[2:]
+        pack += b
+        if pack == 'c0c0':
+            pack = b''
+            print("1")
+        elif hex(b[0])[2:] == 'c0' and len(pack) > 2:
+            print(decode_ax25_header(pack[2:-1]))
+            pack = b''
+
+
+#print(decode_ax25_header(test_data_in))
+try:
+    read_kiss()
+except KeyboardInterrupt:
+    print("Ende ..")
 
 
