@@ -1,10 +1,13 @@
+import crcmod.predefined
+from binascii import unhexlify
 #data_in = "9a88648484a660ac8462849eb0f2ac8462"
-test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d  ### I Frame
+#test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d  ### I Frame
 # 9a88648484a6e09a8864a682ae60868460a682aee1 Rest 40f0620d
-test_data_in = "9a88648484a6e0868460a682ae6151"    # MD2SAW to MD2BBS via CB0SAW* CB0SAW* ctl RR2-
+#test_data_in = "9a88648484a6e0868460a682ae6151"    # MD2SAW to MD2BBS via CB0SAW* CB0SAW* ctl RR2-
 test_data_in = "ae 8aa8 a88a a4e0 8684 60a6 82ae 7c86 8460 a682 ae67 03f0 3c20 5765 7474 6572 2053 616c 7a77 6564 656c 204a 4f35 324e 5520 3e0d 0a20 5465 6d70 2e3a 2020 3231 2e30 2020 430d 0a20 4c75 6674 6472 7563 6b3a 2020 3130 3136 2e36 3731 3220 2068 5061 0d0a 204c 7566 7466 6575 6368 7469 676b 6569 743a 2020 3534 2e38 2020 25"
+test_data_in_b = b"ae8aa8a88aa4e0868460a682ae7c868460a682ae6703f03c205765747465722053616c7a776564656c204a4f35324e55203e0d0a2054656d702e3a202032312e302020430d0a204c756674647275636b3a2020313031362e3637313220206850610d0a204c75667466657563687469676b6569743a202035342e38202025"
 # CB0SAW-14 to WETTER via CB0SAW-3 ctl UI^ pid=F0(Text) len 103
-test_data_in.replace(" ", "")
+test_data_in = test_data_in.replace(" ", "")
 
 
 def decode_ax25_header(data_in):
@@ -15,7 +18,6 @@ def decode_ax25_header(data_in):
         "pid": ()
         # DIGI1..8
     }
-    ctl = ()
 
     def bin2bl(inp):
         return bool(int(inp))
@@ -129,12 +131,55 @@ def decode_ax25_header(data_in):
             flag = False
         return flag, bi
 
+    def calc_fcs(fcs):
+        # Source:
+        def crc16(data: bytes, poly=0x1021):
+            '''
+            CRC-16-CCITT Algorithm
+            '''
+            data = bytearray(data)
+            crc = 0xFFFF
+            # crc = 0x2025
+            for b in data:
+                cur_byte = 0xFF & b
+                for _ in range(0, 8):
+                    if (crc & 0x0001) ^ (cur_byte & 0x0001):
+                        crc = (crc >> 1) ^ poly
+                    else:
+                        crc >>= 1
+                    cur_byte >>= 1
+            crc = (~crc & 0xFFFF)
+            crc = (crc << 8) | ((crc >> 8) & 0xFF)
+
+            return crc & 0xFFFF
+
+
+
+        # data = data_in[:-2]
+        crc_clc = crc16(test_data_in[:-4].encode())
+        # crc = crc16("123456789".encode())
+        print(crc_clc)
+        print(str(hex(crc_clc)))
+
+        print("CRC Bytes in: " + str(fcs))
+        print("CRC len in: " + str(len(fcs)))
+        print("CRC Int in: " + str(int(fcs.encode(), 16)))
+        print("CRC: " + str(bin(int(fcs[0:2], 32))[2:]) + str(bin(int(fcs[2:], 32))[2:]))
+        print(bin(crc_clc)[2:])
+        # print("CRC: " + str(int(fcs, 32)))
+        print(test_data_in.encode())
+        #crc = crcmod.Crc(test_data_in)
+        #print(str(crc))
+
     address_str = ""
     tmp_str = ""
     byte_count = 0
     address_field_count = 0
     keys = ["TO", "FROM"]
     end = False
+    ctl = ()
+    fcs = ""
+
     for i in bytes.fromhex(data_in):
         byte_count += 1
         if not end:                                         # decode Address fields
@@ -169,8 +214,14 @@ def decode_ax25_header(data_in):
             elif byte_count == 2:   # PID Byte in UI and I Frames
                 if ctl[1][-2]:
                     ret["pid"] = decode_pid_byte(conv_hex(i))
-            elif byte_count == 3:   # FCS or data
-                pass
+
+    calc_fcs(data_in[-4:])
+    '''
+    elif byte_count in [3, 4] and not ctl[1][-2]:   # FCS in not UI or I Frame
+        fcs += conv_hex(i)
+        if byte_count == 4:
+            calc_fcs(fcs)
+    '''
 
     print("RES: " + address_str + tmp_str)
     return address_str, ret
