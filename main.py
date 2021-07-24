@@ -1,14 +1,27 @@
 #data_in = "9a88648484a660ac8462849eb0f2ac8462"
-test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d
+test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d  ### I Frame
 # 9a88648484a6e09a8864a682ae60868460a682aee1 Rest 40f0620d
-#test_data_in = "9a88648484a6e0868460a682ae6151"    # MD2SAW to MD2BBS via CB0SAW* CB0SAW* ctl RR2-
-#test_data_in = "ae 8aa8 a88a a4e0 8684 60a6 82ae 7c86 8460 a682 ae67 03f0 3c20 5765 7474 6572 2053 616c 7a77 6564 656c 204a 4f35 324e 5520 3e0d 0a20 5465 6d70 2e3a 2020 3231 2e30 2020 430d 0a20 4c75 6674 6472 7563 6b3a 2020 3130 3136 2e36 3731 3220 2068 5061 0d0a 204c 7566 7466 6575 6368 7469 676b 6569 743a 2020 3534 2e38 2020 25"
+test_data_in = "9a88648484a6e0868460a682ae6151"    # MD2SAW to MD2BBS via CB0SAW* CB0SAW* ctl RR2-
+test_data_in = "ae 8aa8 a88a a4e0 8684 60a6 82ae 7c86 8460 a682 ae67 03f0 3c20 5765 7474 6572 2053 616c 7a77 6564 656c 204a 4f35 324e 5520 3e0d 0a20 5465 6d70 2e3a 2020 3231 2e30 2020 430d 0a20 4c75 6674 6472 7563 6b3a 2020 3130 3136 2e36 3731 3220 2068 5061 0d0a 204c 7566 7466 6575 6368 7469 676b 6569 743a 2020 3534 2e38 2020 25"
 # CB0SAW-14 to WETTER via CB0SAW-3 ctl UI^ pid=F0(Text) len 103
 test_data_in.replace(" ", "")
 
 
 def decode_ax25_header(data_in):
-    ret = {}
+    ret = {
+        "TO": '',
+        "FROM": '',
+        "ctl": (),
+        "pid": ()
+        # DIGI1..8
+    }
+    ctl = ()
+
+    def bin2bl(inp):
+        return bool(int(inp))
+
+    def conv_hex(inp):
+        return hex(inp)[2:]
 
     def decode_adress_char(in_byte):    # Convert to 7 Bit ASCII
         bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]
@@ -17,8 +30,8 @@ def decode_ax25_header(data_in):
 
     def decode_ssid(in_byte):       # Address > CRRSSID1    Digi > HRRSSID1
         bi = bin(int(in_byte, 16))[2:].zfill(8)
-        s_bit = bool(int(bi[7]))    # Stop Bit      Bit 8
-        c_bit = bool(int(bi[0]))    # C bzw H Bit   Bit 1
+        s_bit = bin2bl(bi[7])       # Stop Bit      Bit 8
+        c_bit = bin2bl(bi[0])       # C bzw H Bit   Bit 1
         ssid = int(bi[3:7], 2)      # SSID          Bit 4 - 7
         r_bits = bi[1:3]            # Bit 2 - 3 not used. Free to use for any application .?..
         '''
@@ -32,31 +45,89 @@ def decode_ax25_header(data_in):
         return s_bit, c_bit, ssid, r_bits
 
     def decode_c_byte(in_byte):
-        ret = []
+        def bl2str(inp):
+            if inp:
+                return '-'
+            else:
+                return '+'
+
+        res = []
+        ctl_str = ""
+        pid = False
         bi = bin(int(in_byte, 16))[2:].zfill(8)
-        if not bool(int(bi[-1])):                           # I-Block
-            ret.append("I")
-            ret.append([])
-            ret[1].append(int(bi[:3], 2))                                           # N(R)
-            ret[1].append(bool(int(bi[3])))                                         # P
-            ret[1].append(int(bi[4:7], 2))                                          # N(S)
-        elif not bool(int(bi[-2])) and bool(int(bi[-1])):   # S-Block
-            ret.append("S")
-            ret.append([])
-            ret[1].append(int(bi[:3], 2))                                           # N(R)
-            ret[1].append(bool(int(bi[3])))                                         # P/F
-            ret[1].append((bool(int(bi[4])), bool(int(bi[5]))))                     # S S
-        elif bool(int(bi[-2])) and bool(int(bi[-1])):       # U-Block
-            ret.append("U")
-            ret.append([])
-            ret[1].append((bool(int(bi[0])), bool(int(bi[1])), bool(int(bi[2]))))   # M M M
-            ret[1].append(bool(int(bi[3])))                                         # P/F
-            ret[1].append((bool(int(bi[4])), bool(int(bi[5]))))                     # M M
+        pf = bin2bl(bi[3])                                                          # P/F
+        if not bin2bl(bi[-1]):                              # I-Block   Informationsübertragung
+            res.append("I")
+            res.append([])
+            nr = int(bi[:3], 2)
+            ns = int(bi[4:7], 2)
+            res[1].append(nr)                                                       # N(R)
+            res[1].append(pf)                                                       # P
+            res[1].append(ns)                                                       # N(S)
+            ctl_str = "I" + str(nr) + bl2str(pf)
+            pid = True
+        elif not bin2bl(bi[-2]) and bin2bl(bi[-1]):         # S-Block
+            res.append("S")
+            res.append([])
+            nr = int(bi[:3], 2)
+            ss_bits = bi[4:6]
+            res[1].append(nr)                                                       # N(R)
+            res[1].append(pf)                                                       # P/F
+            res[1].append(ss_bits)                                                  # S S Bits
+            if ss_bits == '00':                                         # Empfangsbereit RR
+                ctl_str = "RR" + str(nr) + bl2str(pf)                               # P/F Bit add +/-
+            elif ss_bits == '01':                                       # Nicht empfangsbereit RNRR
+                ctl_str = "RNRR" + bl2str(pf)                                       # P/F Bit add +/-
+            elif ss_bits == '10':                                       # Wiederholungsaufforderung REJ
+                ctl_str = "REJ" + bl2str(pf)                                        # P/F Bit add +/-
+            else:
+                ctl_str = "S-UNKNOW"
 
-        return ret, bi
+        elif bin2bl(bi[-2]) and bin2bl(bi[-1]):             # U-Block
+            res.append("U")
+            res.append([])
+            mmm = bi[0:3]
+            mm = bi[4:6]
+            res[1].append(mmm)                                                      # M M M
+            res[1].append(pf)                                                       # P/F
+            res[1].append(mm)                                                       # M M
+            if mmm == '001' and mm == '11':
+                ctl_str = "SABM" + bl2str(pf)   # Verbindungsanforderung
+            elif mmm == '010' and mm == '00':
+                ctl_str = "DISC" + bl2str(pf)   # Verbindungsabbruch
+            elif mmm == '000' and mm == '11':
+                ctl_str = "DM" + bl2str(pf)     # Verbindungsrückweisung
+            elif mmm == '011' and mm == '00':
+                ctl_str = "UA" + bl2str(pf)     # Unnummerierte Bestätigung
+            elif mmm == '100' and mm == '01':
+                ctl_str = "FRMR" + bl2str(pf)   # Rückweisung eines Blocks
+                pid = True
+            elif mmm == '000' and mm == '00':
+                ctl_str = "UI" + bl2str(pf)     # Unnummerierte Information UI
+                pid = True
 
-    def conv_hex(inp):
-        return hex(inp)[2:]
+        res[1].append(pid)
+        res[1].append(ctl_str)
+        return ctl_str, res, bi
+
+    def decode_pid_byte(in_byte):
+        flag = ""
+        bi = bin(int(in_byte, 16))[2:].zfill(8)
+        if bi[2:5] == '01':
+            flag = 'AX.25 (L3)'
+        elif bi[2:5] == '10':
+            flag = 'AX.25 (L3)'
+        elif bi == '11001100':
+            flag = 'IP (L3)'
+        elif bi == '11001101':
+            flag = 'ARP (L3)'
+        elif bi == '11001111':
+            flag = 'NET/ROM (L3/4)'
+        elif bi == '11110000':
+            flag = 'Text (NO L3)'
+        elif bi == '11111111':          # Escape. Next Byte has more L3 Infos
+            flag = False
+        return flag, bi
 
     address_str = ""
     tmp_str = ""
@@ -91,9 +162,15 @@ def decode_ax25_header(data_in):
 
         else:
             if byte_count == 1:     # Control Byte
-                print(decode_c_byte(conv_hex(i)))
+                ctl = decode_c_byte(conv_hex(i))
+                ret['ctl'] = ctl
                 tmp_str += "  Control: " + str(hex(i)) + " C-Bits: " + str(bin(int(conv_hex(i)))[2:].zfill(8)) + " "
-            tmp_str += str(conv_hex(i))
+            # tmp_str += str(conv_hex(i))
+            elif byte_count == 2:   # PID Byte in UI and I Frames
+                if ctl[1][-2]:
+                    ret["pid"] = decode_pid_byte(conv_hex(i))
+            elif byte_count == 3:   # FCS or data
+                pass
 
     print("RES: " + address_str + tmp_str)
     return address_str, ret
