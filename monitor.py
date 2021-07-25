@@ -26,12 +26,13 @@ def monitor(data):
                 out += '-' + str(data[dig][1])
                 if data[dig][2]:
                     out += '*'
+            out += ' '
             n += 1
     out += ' ('
     out += data['ctl'][1][0]
     i = 1
     for e in data['ctl'][1][1]:
-        if i != len(data['ctl'][1][1]):
+        if i < len(data['ctl'][1][1]) - 1:
             out += ' ' + str(e)
         i += 1
     out += ')'
@@ -39,8 +40,9 @@ def monitor(data):
     if data['pid']:
         out += ' [' + data['pid'][0] + ']'
     if data['data'][1]:
-        out += '\r\n' + data['data'][0].decode('ASCII', errors='ignore') + ' len:' + str(data['data'][1])
-    print(out)
+        out += ' (len:' + str(data['data'][1]) + ')'
+        out += '\r\n'
+        out += data['data'][0].decode('ASCII', errors='ignore')
     f.writelines(out + '\r\n')
     f.close()
 

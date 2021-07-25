@@ -16,14 +16,23 @@ test_data_in = "9a88648484a6e0868460a682ae6151"    # MD2SAW to MD2BBS via CB0SAW
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
-ax_conn = {
+ax_conn = []
+ax_conn.append({
     'call': 'MD2SAW-8',
     'dest': 'TEST11',
-    'via': 'CB0SAW',
+    'via': ('CB0SAW', False),
     'out': '< TEST fm MD2SAW ( JO52NU ) >',
-    'typ': 'UI',
+    'typ': ('UI', False),
     'pid': 6
-}
+})
+ax_conn.append({
+    'call': 'MD2SAW-8',
+    'dest': 'DX0SAW',
+    'via': ('CB0SAW', True),
+    'out': '',
+    'typ': ('SABM', True),
+    'pid': 6
+})
 '''
 pid
 1 = yy01yyyy AX.25 Layer 3 implementiert.
@@ -104,8 +113,8 @@ def decode_ax25_frame(data_in):
             res.append([])
             nr = int(bi[:3], 2)
             ns = int(bi[4:7], 2)
-            res[1].append(nr)                                                       # N(R)
             res[1].append(pf)                                                       # P
+            res[1].append(nr)                                                       # N(R)
             res[1].append(ns)                                                       # N(S)
             ctl_str = "I" + str(nr) + str(ns) + bl2str(pf)
             pid = True
@@ -114,9 +123,9 @@ def decode_ax25_frame(data_in):
             res.append([])
             nr = int(bi[:3], 2)
             ss_bits = bi[4:6]
-            res[1].append(nr)                                                       # N(R)
             res[1].append(pf)                                                       # P/F
-            res[1].append(ss_bits)                                                  # S S Bits
+            res[1].append(nr)                                                       # N(R)
+            # res[1].append(ss_bits)                                                  # S S Bits
             if ss_bits == '00':                                         # Empfangsbereit RR
                 ctl_str = "RR" + str(nr) + bl2str(pf)                               # P/F Bit add +/-
             elif ss_bits == '01':                                       # Nicht empfangsbereit RNRR
@@ -131,9 +140,9 @@ def decode_ax25_frame(data_in):
             res.append([])
             mmm = bi[0:3]
             mm = bi[4:6]
-            res[1].append(mmm)                                                      # M M M
+            # res[1].append(mmm)                                                      # M M M
             res[1].append(pf)                                                       # P/F
-            res[1].append(mm)                                                       # M M
+            # res[1].append(mm)                                                       # M M
             pf = not pf
             if mmm == '001' and mm == '11':
                 ctl_str = "SABM" + bl2str(pf)   # Verbindungsanforderung
@@ -230,7 +239,7 @@ def encode_ax25_frame(con_data):
     c, d = get_ssid(con_data['call']), get_ssid(con_data['dest'])
     call, call_ssid = c[0], c[1]
     dest, dest_ssid = d[0], d[1]
-    via = con_data['via'].split(' ')
+    via = con_data['via'][0].split(' ')
     i = 0
     for n in via:
         t = get_ssid(n)
@@ -277,6 +286,9 @@ def encode_ax25_frame(con_data):
             if type_str == 'UI':
                 pid_tr = True
                 return format_hex(ret), pid_tr
+            elif type_str == 'SABM':
+                ret = '001' + ret[3] + '11' + ret[-2:]
+                return format_hex(ret), pid_tr
         return format_hex(ret), pid_tr
 
     def encode_pid_byte(pid_in=6):
@@ -307,11 +319,11 @@ def encode_ax25_frame(con_data):
     for i in via:
         out_str += encode_address_char(i[0])
         if c + 1 == len(via):                           # Set Stop Bit
-            # out_str += encode_ssid(i[1], False, True) # TEST DIDI FLAG
-            out_str += encode_ssid(i[1], True, True)
+            out_str += encode_ssid(i[1], con_data['via'][0], True)
+            #out_str += encode_ssid(i[1], True, True)
         else:
             out_str += encode_ssid(i[1])
-    c_byte = encode_c_byte(typ)                         # Control Byte
+    c_byte = encode_c_byte(typ[0],typ[1])               # Control Byte
     out_str += c_byte[0]
     if c_byte[1]:                                       # PID Byte
         out_str += encode_pid_byte(pid)
@@ -342,7 +354,7 @@ def send_kiss(ser, data_in):
 def read_kiss():
     pack = b''
     ser = serial.Serial(ser_port, ser_baud, timeout=1)
-    t = time.time()
+    t = time.time() -40
     while True:
         b = ser.read()
         pack += b
@@ -352,9 +364,9 @@ def read_kiss():
                 decode_ax25_frame(pack[2:-1])
                 print("_________________________________________________")
                 pack = b''
-        if time.time() - t > 30 and send:
+        if time.time() - t > 60 and send:
             print('#######################################################')
-            send_kiss(ser, encode_ax25_frame(ax_conn))
+            send_kiss(ser, encode_ax25_frame(ax_conn[1]))
             print('#######################################################')
             t = time.time()
 
@@ -365,7 +377,7 @@ send = False
 #print("_-------------------------------_")
 # print(encode_ax25_frame(ax_conn))
 
-#enc = encode_ax25_frame(ax_conn)
+#enc = encode_ax25_frame(ax_conn[1])
 #print(decode_ax25_frame(bytes.fromhex(enc)))
 
 #print(decode_ax25_frame(test_data_in))
