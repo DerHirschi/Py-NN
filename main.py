@@ -1,5 +1,6 @@
 import serial
 import time
+import monitor
 #data_in = "9a88648484a660ac8462849eb0f2ac8462"
 #test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d  ### I Frame
 # 9a88648484a6e09a8864a682ae60868460a682aee1 Rest 40f0620d
@@ -217,6 +218,10 @@ def decode_ax25_frame(data_in):
     text = str(tmp_str2.decode(errors="ignore"))
     print("RES: " + address_str + "\r\n> " + text)
     ret["data"] = (tmp_str2, len(tmp_str2))
+    if debug:
+        for k in ret.keys():
+            print(ret[k])
+    monitor.monitor(ret)
     return address_str, ret
 
 
@@ -239,7 +244,7 @@ def encode_ax25_frame(con_data):
     print(dest + dest_ssid)
     print(via)
 
-    def encode_address_char(in_ascii_str=''):
+    def encode_address_char(in_ascii_str=''):   # TODO Adressbereich auffüllen wenn weniger als 6 chars
         t = bytearray(in_ascii_str.encode('ASCII'))
         out = ''
         for i in t:
@@ -344,30 +349,30 @@ def read_kiss():
         if b:
             if conv_hex(b[0]) == 'c0' and len(pack) > 2:
                 print("-------------------------------------------------")
-                print(pack)
-                print(decode_ax25_frame(pack[2:-1]))
+                decode_ax25_frame(pack[2:-1])
                 print("_________________________________________________")
                 pack = b''
-        if time.time() - t > 30 and debug:
+        if time.time() - t > 30 and send:
             print('#######################################################')
             send_kiss(ser, encode_ax25_frame(ax_conn))
             print('#######################################################')
             t = time.time()
 
 
-debug = False
+debug = True
+send = False
 #print(decode_ax25_frame(bytearray.fromhex("9a8864a682aee088b060a682ae60868460a682aee103f0626c6120303030303030303030303030205445535420544553542044444444444444444444")))
 #print("_-------------------------------_")
 # print(encode_ax25_frame(ax_conn))
-#enc = encode_ax25_frame(ax_conn)
-#print(enc)
 
-#for i in range(20):
+#enc = encode_ax25_frame(ax_conn)
 #print(decode_ax25_frame(bytes.fromhex(enc)))
+
 #print(decode_ax25_frame(test_data_in))
 #print(decode_ax25_frame(bytes.fromhex('a88aa6a8e09a8864a682ae70868460a682aee103f03c205445535420666d204d44325341572028204a4f35324e552029203e')))
 #9a8864a682aee088b060a682ae60868460a682aee130xf0626c6120303030303030303030303030205445535420544553542044444444444444444444
 #\xc0\x00\xa6\xa8\x82\xa8\xaa\xa6\xe0\x88\xb0`\xa6\x82\xaea\x13\xf0
+
 
 try:
     read_kiss()
