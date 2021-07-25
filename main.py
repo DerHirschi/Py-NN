@@ -1,4 +1,5 @@
 import serial
+import time
 #data_in = "9a88648484a660ac8462849eb0f2ac8462"
 #test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d  ### I Frame
 # 9a88648484a6e09a8864a682ae60868460a682aee1 Rest 40f0620d
@@ -12,24 +13,60 @@ import serial
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
+ax_conn = {
+    'call': 'DX0SAW',
+    'dest': 'MD2SAW',
+    'via': 'CB0SAW',
+    'out': 'bla 000000000000 TEST TEST DDDDDDDDDD',
+    'typ': 'UI',
+    'pid': 6
+}
+'''
+pid
+1 = yy01yyyy AX.25 Layer 3 implementiert.
+2 = yy10yyyy AX.25 Layer 3 implementiert.
+3 = 11001100 Internet Protokoll Datagramm Layer 3 implementiert.
+4 = 11001101 Adress Resolution Protokoll Layer 3 implementiert.
+5 = 11001111 NET/ROM Protokoll Layer 3/4 implementiert.
+6 = 11110000 Kein Layer 3 implementiert.
+7 = 11111111 Fluchtsymbol, das nächste Byte enthält weitere Layer 3 Protokoll Informationen.
+'''
 
 
-def decode_ax25_header(data_in):
+def bin2bl(inp):
+    return bool(int(inp))
+
+
+def bytearray2hexstr(inp):
+    return ''.join('{:02x}'.format(x) for x in inp)
+
+
+def hexstr2bytearray(inp):
+    return bytearray.fromhex(inp)
+
+
+def conv_hex(inp):
+    return hex(inp)[2:]
+
+
+def get_ssid(inp):
+    if inp.find('-') != -1:
+        return inp[:inp.find('-')].upper(), inp[inp.find('-') + 1:].upper()
+    else:
+        return inp, ''
+
+
+def decode_ax25_frame(data_in):
     ret = {
         "TO": '',
         "FROM": '',
         "ctl": (),
         "pid": ()
-        # DIGI1..8
+        # "DIGI1..8"
+        # "data"
     }
 
-    def bin2bl(inp):
-        return bool(int(inp))
-
-    def conv_hex(inp):
-        return hex(inp)[2:]
-
-    def decode_adress_char(in_byte):    # Convert to 7 Bit ASCII
+    def decode_address_char(in_byte):    # Convert to 7 Bit ASCII
         bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]
         he = hex(int(bin_char, 2))
         return bytes.fromhex(he[2:]).decode()
@@ -49,9 +86,7 @@ def decode_ax25_header(data_in):
             else:
                 return '+'
 
-        res = []
-        ctl_str = ""
-        pid = False
+        res, ctl_str, pid = [], '', False
         bi = bin(int(in_byte, 16))[2:].zfill(8)
         pf = bin2bl(bi[3])                                                          # P/F
         if not bin2bl(bi[-1]):                              # I-Block   Informationsübertragung
@@ -89,6 +124,7 @@ def decode_ax25_header(data_in):
             res[1].append(mmm)                                                      # M M M
             res[1].append(pf)                                                       # P/F
             res[1].append(mm)                                                       # M M
+            pf = not pf
             if mmm == '001' and mm == '11':
                 ctl_str = "SABM" + bl2str(pf)   # Verbindungsanforderung
             elif mmm == '010' and mm == '00':
@@ -127,59 +163,43 @@ def decode_ax25_header(data_in):
             flag = False
         return flag, bi
     '''
-    def calc_fcs(fcs):
-        # Source:
-        def crc16(data: bytes, poly=0x1021):
-            # CRC-16-CCITT Algorithm
-            data = bytearray(data)
-            crc = 0xFFFF
-            # crc = 0x2025
-            for b in data:
-                cur_byte = 0xFF & b
-                for _ in range(0, 8):
-                    if (crc & 0x0001) ^ (cur_byte & 0x0001):
-                        crc = (crc >> 1) ^ poly
-                    else:
-                        crc >>= 1
-                    cur_byte >>= 1
-            crc = (~crc & 0xFFFF)
-            crc = (crc << 8) | ((crc >> 8) & 0xFF)
+    # Source:
+    def crc16(data: bytes, poly=0x1021):
+        # CRC-16-CCITT Algorithm
+        data = bytearray(data)
+        crc = 0xFFFF
+        # crc = 0x2025
+        for b in data:
+            cur_byte = 0xFF & b
+            for _ in range(0, 8):
+                if (crc & 0x0001) ^ (cur_byte & 0x0001):
+                    crc = (crc >> 1) ^ poly
+                else:
+                    crc >>= 1
+                cur_byte >>= 1
+        crc = (~crc & 0xFFFF)
+        crc = (crc << 8) | ((crc >> 8) & 0xFF)
 
-            return crc & 0xFFFF
-
-
-
-        crc_clc = crc16(data_in[:-2])
-        print(crc_clc)
-        print(str(hex(crc_clc)))
-
-        print("CRC Bytes in: " + str(fcs))
-        print("CRC len in: " + str(len(fcs)))
-        #print("CRC: " + str(bin(int(fcs[0:2], 32))[2:]) + str(bin(int(fcs[2:], 32))[2:]))
-        print(bin(crc_clc)[2:])
-        # print("CRC: " + str(int(fcs, 32)))
-        print(test_data_in.encode())
-        '''
-    tmp_str, address_str = "", ""
-    tmp_str2 = bytearray(0)
+        return crc & 0xFFFF
+    '''
+    tmp_str, tmp_str2, address_str, end = "", bytearray(0), "", False
     address_field_count, byte_count = 0, 0
     keys = ["TO", "FROM"]
-    end = False
-    ctl = ()
     # print(data_in)
     for i in data_in:
         byte_count += 1
         if not end:                                         # decode Address fields
             if byte_count != 7:                             # 7 Byte Address Chars
-                tmp = decode_adress_char(conv_hex(i))
+                tmp = decode_address_char(conv_hex(i))
                 address_str += tmp
                 tmp_str += tmp
             else:                                           # 8 th Byte SSID (CRRSSID1)
                 tmp = decode_ssid(conv_hex(i))
                 address_field_count += 1
                 byte_count = 0
-                address_str += "-"
-                address_str += str(tmp[2])
+                if tmp[2] != 0:
+                    address_str += "-"
+                    address_str += str(tmp[2])              # SSID
                 if address_field_count > 2:                 # DIGI
                     keys.append("DIGI" + str(address_field_count - 2))
                     if tmp[1]:                              # H Bit
@@ -194,39 +214,179 @@ def decode_ax25_header(data_in):
 
         else:
             if byte_count == 1:     # Control Byte
-                ctl = decode_c_byte(conv_hex(i))
-                ret['ctl'] = ctl
+                ret['ctl'] = decode_c_byte(conv_hex(i))
             elif byte_count == 2:   # PID Byte in UI and I Frames
-                if ctl[1][-2]:
-                    ret["pid"] = decode_pid_byte(conv_hex(i))
+                if ret['ctl'][1][-2]:
+                    ret['pid'] = decode_pid_byte(conv_hex(i))
                 else:
                     tmp_str2.append(i)
             else:
                 tmp_str2.append(i)
 
     # calc_fcs(data_in[-2:])
-    rest = str(tmp_str2.decode(errors="ignore"))
-    print("RES: " + address_str + "\r\n> " + rest)
+    text = str(tmp_str2.decode(errors="ignore"))
+    print("RES: " + address_str + "\r\n> " + text)
+    ret["data"] = (tmp_str2, len(tmp_str2))
     return address_str, ret
+
+
+def encode_ax25_frame(con_data):
+    out_str = ''
+    c, d = get_ssid(con_data['call']), get_ssid(con_data['dest'])
+    call, call_ssid = c[0], c[1]
+    dest, dest_ssid = d[0], d[1]
+    via = con_data['via'].split(' ')
+    i = 0
+    for n in via:
+        t = get_ssid(n)
+        via[i] = (t[0], t[1])
+        i += 1
+
+    typ = con_data['typ']
+    pid = con_data['pid']
+    data_out = con_data['out']
+    print(call + call_ssid)
+    print(dest + dest_ssid)
+    print(via)
+
+    def encode_address_char(in_ascii_str=''):
+        t = bytearray(in_ascii_str.encode('ASCII'))
+        out = ''
+        for i in t:
+            out += conv_hex(i << 1)
+        # print("out : " + out)
+        return out
+
+    def encode_ssid(in_ascii_str='', c_h_bit=False, stop_bit= False):
+        if in_ascii_str == '':
+            in_ascii_str = '0'
+        ssid = int(in_ascii_str)
+        ssid = bin(ssid << 1)[2:].zfill(8)
+        if c_h_bit:
+            ssid = '1' + ssid[1:]               # Set C or H Bit. H Bit if msg was geDigit
+        if stop_bit:
+            ssid = ssid[:-1] + '1'              # Set Stop Bit on last DIGI
+        ssid = ssid[:1] + '11' + ssid[3:]       # Set R R Bits True.
+        # print(ssid)
+        # print(hex(int(ssid, 2))[2:])
+        return hex(int(ssid, 2))[2:]
+
+    def encode_c_byte(type_str, p_f_bit=False):
+        ret = ''.zfill(8)
+        pid_tr = False
+        if p_f_bit:
+            ret = ret[:3] + '1' + ret[4:]
+        # U Block
+        if type_str in ["SABM", "DISC", "DM", "UA", "FRMR", "UI"]:
+            ret = ret[:-2] + '11'
+            if type_str == 'UI':
+                pid_tr = True
+                return hex(int(ret, 2))[2:], pid_tr
+        return hex(int(ret, 2))[2:], pid_tr
+
+    def encode_pid_byte(pid_in=6):
+        ret = ''.zfill(8)
+        if pid_in == 1:
+            return hex(int(ret[:2] + '01' + ret[4:], 2))[2:]
+        elif pid_in == 2:
+            return hex(int(ret[:2] + '10' + ret[4:], 2))[2:]
+        elif pid_in == 3:
+            return hex(int('11001100', 2))[2:]
+        elif pid_in == 4:
+            return hex(int('11001101', 2))[2:]
+        elif pid_in == 5:
+            return hex(int('11001111', 2))[2:]
+        elif pid_in == 6:
+            return hex(int('11110000', 2))[2:]
+        elif pid_in == 7:
+            return hex(int('11111111', 2))[2:]
+
+    out_str += encode_address_char(dest)
+    out_str += encode_ssid(dest_ssid, True)
+    out_str += encode_address_char(call)
+    if via:                                             # Set Stop Bit
+        out_str += encode_ssid(call_ssid)
+    else:
+        out_str += encode_ssid(call_ssid, False, True)
+
+    c = 0
+    for i in via:
+        out_str += encode_address_char(i[0])
+        if c + 1 == len(via):                           # Set Stop Bit
+            # out_str += encode_ssid(i[1], False, True)
+            out_str += encode_ssid(i[1], True, True)
+        else:
+            out_str += encode_ssid(i[1])
+
+    c_byte = encode_c_byte(typ)                         # Control Byte
+    out_str += c_byte[0]
+    if c_byte[1]:                                       # PID Byte
+        out_str += encode_pid_byte(pid)
+        out_str += bytearray2hexstr(bytearray(data_out.encode('ASCII')))
+
+    print(out_str)
+    return out_str
+
+
+def send_kiss(ser, data_in):
+    # c0009a8864a682aee088b060a682ae60868460a682ae6104f00d445830534157202830323a3030293ec0
+    # 9a8864a682aee088b060a682ae60868460a682ae6104f00d445830534157202830323a3030293e
+    # 9a8864a682aee088b060a682ae61868460a682ae61
+    # 9a8864a682ae88b060a682ae
+    # 9a8864a682ae6488b060a682ae0
+    # DX0SAW>MD2SAW,CB0SAW:(I cmd, n(s)=2, n(r)=0, p=0, pid=0xf0)<0x0d>DX0SAW (02:00)>
+    # fm DX0SAW to MD2SAW via CB0SAW ctl I02^ pid=F0(Text) len 16 02:44:07
+    #
+    # DX0SAW (02:00)>
+    # data_in = '9a8864a682aee088b060a682ae60868460a682ae6104f00d445830534157202830323a3030293e'
+    print("S-Kiss: " + str(data_in))
+    ser.write(bytearray(('c000' + data_in + 'c0').encode()))
+    #print(decode_ax25_frame(data_in.encode()))
 
 
 def read_kiss():
     pack = b''
-    ser = serial.Serial(ser_port, ser_baud, timeout=900)
+    ser = serial.Serial(ser_port, ser_baud, timeout=1)
+    t = time.time()
     while True:
         b = ser.read()
         pack += b
-        if hex(b[0])[2:] == 'c0' and len(pack) > 2:
-            # print(pack)
-            print(decode_ax25_header(pack[2:-1]))
-            # ser.write(pack)
-            pack = b''
+        if b:
+            if conv_hex(b[0]) == 'c0' and len(pack) > 2:
+                print("-------------")
+                print(type(pack))
+                print(pack)
+                print(decode_ax25_frame(pack[2:-1]))
+                print("_____________")
+                pack = b''
+        if time.time() - t > 10:
+            # send_kiss(ser, encode_ax25_frame(ax_conn))
+            en = encode_ax25_frame(ax_conn)
+            en_tmp = list(en)
+            print(en_tmp)
+            en_tmp = bytes(en_tmp)
+            print("--------------")
+            print(type(en_tmp))
+            print(en_tmp)
+            print("##############")
+            t = time.time()
 
 
-#print(decode_ax25_header(test_data_in))
-try:
-    read_kiss()
-except KeyboardInterrupt:
-    print("Ende ..")
+# print(decode_ax25_header(test_data_in))
+# print(encode_ax25_frame(ax_conn))
+enc = encode_ax25_frame(ax_conn)
+print(enc.encode())
+bz = b''
+for e in enc:
+    print(e)
+#for i in range(20):
+print(decode_ax25_frame(enc.encode()))
+#print(decode_ax25_frame('a88aa6a8e09a8864a682ae70868460a682aee130xf0626c6120303030303030303030303030205445535420544553542044444444444444444444'))
+#9a8864a682aee088b060a682ae60868460a682aee130xf0626c6120303030303030303030303030205445535420544553542044444444444444444444
+#\xc0\x00\xa6\xa8\x82\xa8\xaa\xa6\xe0\x88\xb0`\xa6\x82\xaea\x13\xf0
+#try:
+#    read_kiss()
+#except KeyboardInterrupt:
+#    print("Ende ..")
 
 
