@@ -2,6 +2,8 @@ import time
 from datetime import datetime
 # Gibt Monitor Daten in Datei aus. Datei mit "tail -f" im tmux aufrufen und gut..
 mon_f = 'mon.txt'
+debug_f = 'debug.txt'
+error_f = 'error.txt'
 
 
 def monitor(data):
@@ -47,3 +49,14 @@ def monitor(data):
     f.close()
 
 
+def debug_out(in_str, error=False):
+    f = ''
+    if error:
+        f = open(error_f, 'a')
+    else:
+        f = open(debug_f, 'a')
+    out = ''
+    now = datetime.now()  # current date and time
+    out += now.strftime("%d/%m/%Y %H:%M:%S> ") + str(in_str) + '\r\n'
+    f.write(out)
+    f.close()

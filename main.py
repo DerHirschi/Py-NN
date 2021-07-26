@@ -88,7 +88,10 @@ def decode_ax25_frame(data_in):
     def decode_address_char(in_byte):    # Convert to 7 Bit ASCII
         bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]
         he = hex(int(bin_char, 2))
-        return bytes.fromhex(he[2:]).decode()
+        try:
+            return bytes.fromhex(he[2:]).decode()
+        except ValueError as e:
+            raise e
 
     def decode_ssid(in_byte):       # Address > CRRSSID1    Digi > HRRSSID1
         bi = bin(int(in_byte, 16))[2:].zfill(8)
@@ -185,12 +188,16 @@ def decode_ax25_frame(data_in):
     tmp_str, tmp_str2, address_str, end = "", bytearray(0), "", False
     address_field_count, byte_count = 0, 0
     keys = ["TO", "FROM"]
-    print("Dec IN: " + str(data_in))
+    # print("Dec IN: " + str(data_in))
+    monitor.debug_out("Dec IN: " + str(data_in))
     for i in data_in:
         byte_count += 1
         if not end:                                         # decode Address fields
             if byte_count != 7:                             # 7 Byte Address Chars
-                tmp = decode_address_char(conv_hex(i))
+                try:
+                    tmp = decode_address_char(conv_hex(i))
+                except ValueError as e:
+                    raise e
                 address_str += tmp
                 tmp_str += tmp
             else:                                           # 8 th Byte SSID (CRRSSID1)
@@ -223,18 +230,20 @@ def decode_ax25_frame(data_in):
             else:
                 tmp_str2.append(i)
 
-    # calc_fcs(data_in[-2:])
     text = str(tmp_str2.decode(errors="ignore"))
-    print("RES: " + address_str + "\r\n> " + text)
+    monitor.debug_out("RES: " + address_str + "\r\n> " + text)
+    # print("RES: " + address_str + "\r\n> " + text)
     ret["data"] = (tmp_str2, len(tmp_str2))
     if debug:
         for k in ret.keys():
-            print(ret[k])
+            monitor.debug_out(ret[k])
+            # print(ret[k])
     monitor.monitor(ret)
     return address_str, ret
 
 
 def encode_ax25_frame(con_data):
+    monitor.debug_out('################ ENC ##################################')
     out_str = ''
     c, d = get_ssid(con_data['call']), get_ssid(con_data['dest'])
     call, call_ssid = c[0], c[1]
@@ -249,9 +258,10 @@ def encode_ax25_frame(con_data):
     typ = con_data['typ']
     pid = con_data['pid']
     data_out = con_data['out']
-    print(call + call_ssid)
-    print(dest + dest_ssid)
-    print(via)
+    monitor.debug_out(str(con_data))
+    # print(call + call_ssid)
+    # print(dest + dest_ssid)
+    # print(via)
 
     def encode_address_char(in_ascii_str=''):   # TODO Adressbereich auffüllen wenn weniger als 6 chars
         t = bytearray(in_ascii_str.encode('ASCII'))
@@ -272,7 +282,6 @@ def encode_ax25_frame(con_data):
         ssid = ssid[:1] + '11' + ssid[3:]       # Set R R Bits True.
         # print(ssid)
         # print(hex(int(ssid, 2))[2:])
-        # return hex(int(ssid, 2))[2:]
         return format_hex(ssid)
 
     def encode_c_byte(type_str, p_f_bit=False):
@@ -320,7 +329,6 @@ def encode_ax25_frame(con_data):
         out_str += encode_address_char(i[0])
         if c + 1 == len(via):                           # Set Stop Bit
             out_str += encode_ssid(i[1], con_data['via'][0], True)
-            #out_str += encode_ssid(i[1], True, True)
         else:
             out_str += encode_ssid(i[1])
     c_byte = encode_c_byte(typ[0],typ[1])               # Control Byte
@@ -331,61 +339,52 @@ def encode_ax25_frame(con_data):
             pass
             out_str += format(ord(i.encode()), "x")
 
-    print(out_str)
+    # print(out_str)
+    monitor.debug_out(out_str)
+    monitor.debug_out('############### ENC ENDE ##############################')
     return out_str
 
 
 def send_kiss(ser, data_in):
-    # c0009a8864a682aee088b060a682ae60868460a682ae6104f00d445830534157202830323a3030293ec0
-    # 9a8864a682aee088b060a682ae60868460a682ae6104f00d445830534157202830323a3030293e
-    # 9a8864a682aee088b060a682ae61868460a682ae61
-    # 9a8864a682ae88b060a682ae
-    # 9a8864a682ae6488b060a682ae0
-    # DX0SAW>MD2SAW,CB0SAW:(I cmd, n(s)=2, n(r)=0, p=0, pid=0xf0)<0x0d>DX0SAW (02:00)>
-    # fm DX0SAW to MD2SAW via CB0SAW ctl I02^ pid=F0(Text) len 16 02:44:07
-    #
-    # DX0SAW (02:00)>
-    # data_in = '9a8864a682aee088b060a682ae60868460a682ae6104f00d445830534157202830323a3030293e'
-    print("S-Kiss: " + str(data_in))
+    # print("S-Kiss: " + str(data_in))
+    monitor.debug_out("Send-Kiss: " + str(data_in))
     ser.write(bytes.fromhex('c000' + data_in + 'c0'))
-    #print(decode_ax25_frame(data_in.encode()))
 
 
 def read_kiss():
     pack = b''
     ser = serial.Serial(ser_port, ser_baud, timeout=1)
-    t = time.time() -40
+    t = time.time() - 40
     while True:
         b = ser.read()
         pack += b
         if b:
             if conv_hex(b[0]) == 'c0' and len(pack) > 2:
-                print("-------------------------------------------------")
-                decode_ax25_frame(pack[2:-1])
-                print("_________________________________________________")
+                monitor.debug_out("-------------------------------------------------")
+                try:
+                    decode_ax25_frame(pack[2:-1])
+                except ValueError as e:
+                    monitor.debug_out("-------------- ERROR beim Decoden !! -------------", True)
+                    monitor.debug_out(e, True)
+                    monitor.debug_out(pack, True)
+                    monitor.debug_out('', True)
+                monitor.debug_out("_________________________________________________")
                 pack = b''
         if time.time() - t > 60 and send:
-            print('#######################################################')
+
             send_kiss(ser, encode_ax25_frame(ax_conn[1]))
-            print('#######################################################')
             t = time.time()
 
 
 debug = True
 send = False
-#print(decode_ax25_frame(bytearray.fromhex("9a8864a682aee088b060a682ae60868460a682aee103f0626c6120303030303030303030303030205445535420544553542044444444444444444444")))
-#print("_-------------------------------_")
-# print(encode_ax25_frame(ax_conn))
 
 #enc = encode_ax25_frame(ax_conn[1])
 #print(decode_ax25_frame(bytes.fromhex(enc)))
-
-#print(decode_ax25_frame(test_data_in))
-#print(decode_ax25_frame(bytes.fromhex('a88aa6a8e09a8864a682ae70868460a682aee103f03c205445535420666d204d44325341572028204a4f35324e552029203e')))
-#9a8864a682aee088b060a682ae60868460a682aee130xf0626c6120303030303030303030303030205445535420544553542044444444444444444444
-#\xc0\x00\xa6\xa8\x82\xa8\xaa\xa6\xe0\x88\xb0`\xa6\x82\xaea\x13\xf0
-
-
+#try:
+#    print(decode_ax25_frame(b'r\x0c\xbd:1\xa6\xcf\r\xefVtPI\xfd\xe1\xa8\xa6\t\xa2\xa2U\x91!D\xffjV\x0b\x97N'))
+#except ValueError as e:
+#    print(e)
 try:
     read_kiss()
 except KeyboardInterrupt:
