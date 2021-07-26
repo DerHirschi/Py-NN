@@ -30,15 +30,16 @@ def monitor(data):
                     out += '*'
             out += ' '
             n += 1
-    out += ' ('
-    out += data['ctl'][1][0]
+    out += '('
     i = 1
-    for e in data['ctl'][1][1]:
-        if i < len(data['ctl'][1][1]) - 1:
-            out += ' ' + str(e)
+    for e in data['ctl'][1]:
+        if (i < len(data['ctl'][1]) - 1) and i > 1:
+            out += ' '
+        if i < len(data['ctl'][1]) - 1:
+            out += str(e)
         i += 1
     out += ')'
-    out += ' ' + data['ctl'][1][1][-1]
+    out += ' ' + data['ctl'][1][-1]
     if data['pid']:
         out += ' [' + data['pid'][0] + ']'
     if data['data'][1]:

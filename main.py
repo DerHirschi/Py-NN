@@ -1,6 +1,8 @@
 import serial
 import time
+import threading
 import monitor
+
 #data_in = "9a88648484a660ac8462849eb0f2ac8462"
 #test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d  ### I Frame
 # 9a88648484a6e09a8864a682ae60868460a682aee1 Rest 40f0620d
@@ -43,6 +45,12 @@ pid
 6 = 11110000 Kein Layer 3 implementiert.
 7 = 11111111 Fluchtsymbol, das nächste Byte enthält weitere Layer 3 Protokoll Informationen.
 '''
+p_end = False
+mheard = []
+
+
+def mh_data(frame_in):
+    pass
 
 
 def bin2bl(inp):
@@ -113,21 +121,21 @@ def decode_ax25_frame(data_in):
         pf = bin2bl(bi[3])                                                          # P/F
         if not bin2bl(bi[-1]):                              # I-Block   Informationsübertragung
             res.append("I")
-            res.append([])
+            #res.append([])
             nr = int(bi[:3], 2)
             ns = int(bi[4:7], 2)
-            res[1].append(pf)                                                       # P
-            res[1].append(nr)                                                       # N(R)
-            res[1].append(ns)                                                       # N(S)
+            res.append(pf)                                                       # P
+            res.append(nr)                                                       # N(R)
+            res.append(ns)                                                       # N(S)
             ctl_str = "I" + str(nr) + str(ns) + bl2str(pf)
             pid = True
         elif not bin2bl(bi[-2]) and bin2bl(bi[-1]):         # S-Block
             res.append("S")
-            res.append([])
+            #res.append([])
             nr = int(bi[:3], 2)
             ss_bits = bi[4:6]
-            res[1].append(pf)                                                       # P/F
-            res[1].append(nr)                                                       # N(R)
+            res.append(pf)                                                       # P/F
+            res.append(nr)                                                       # N(R)
             # res[1].append(ss_bits)                                                  # S S Bits
             if ss_bits == '00':                                         # Empfangsbereit RR
                 ctl_str = "RR" + str(nr) + bl2str(pf)                               # P/F Bit add +/-
@@ -140,11 +148,11 @@ def decode_ax25_frame(data_in):
 
         elif bin2bl(bi[-2]) and bin2bl(bi[-1]):             # U-Block
             res.append("U")
-            res.append([])
+            # res.append([])
             mmm = bi[0:3]
             mm = bi[4:6]
             # res[1].append(mmm)                                                      # M M M
-            res[1].append(pf)                                                       # P/F
+            res.append(pf)                                                       # P/F
             # res[1].append(mm)                                                       # M M
             pf = not pf
             if mmm == '001' and mm == '11':
@@ -162,8 +170,8 @@ def decode_ax25_frame(data_in):
                 ctl_str = "UI" + bl2str(pf)     # Unnummerierte Information UI
                 pid = True
 
-        res[1].append(pid)
-        res[1].append(ctl_str)
+        res.append(pid)
+        res.append(ctl_str)
         return ctl_str, res, bi
 
     def decode_pid_byte(in_byte):
@@ -188,7 +196,6 @@ def decode_ax25_frame(data_in):
     tmp_str, tmp_str2, address_str, end = "", bytearray(0), "", False
     address_field_count, byte_count = 0, 0
     keys = ["TO", "FROM"]
-    # print("Dec IN: " + str(data_in))
     monitor.debug_out("Dec IN: " + str(data_in))
     for i in data_in:
         byte_count += 1
@@ -200,7 +207,7 @@ def decode_ax25_frame(data_in):
                     raise e
                 address_str += tmp
                 tmp_str += tmp
-            else:                                           # 8 th Byte SSID (CRRSSID1)
+            else:                                           # 7 th Byte SSID (CRRSSID1)
                 tmp = decode_ssid(conv_hex(i))
                 address_field_count += 1
                 byte_count = 0
@@ -232,13 +239,12 @@ def decode_ax25_frame(data_in):
 
     text = str(tmp_str2.decode(errors="ignore"))
     monitor.debug_out("RES: " + address_str + "\r\n> " + text)
-    # print("RES: " + address_str + "\r\n> " + text)
     ret["data"] = (tmp_str2, len(tmp_str2))
     if debug:
         for k in ret.keys():
             monitor.debug_out(ret[k])
-            # print(ret[k])
     monitor.monitor(ret)
+    mh_data(ret)
     return address_str, ret
 
 
@@ -259,9 +265,6 @@ def encode_ax25_frame(con_data):
     pid = con_data['pid']
     data_out = con_data['out']
     monitor.debug_out(str(con_data))
-    # print(call + call_ssid)
-    # print(dest + dest_ssid)
-    # print(via)
 
     def encode_address_char(in_ascii_str=''):   # TODO Adressbereich auffüllen wenn weniger als 6 chars
         t = bytearray(in_ascii_str.encode('ASCII'))
@@ -280,8 +283,6 @@ def encode_ax25_frame(con_data):
         if stop_bit:
             ssid = ssid[:-1] + '1'              # Set Stop Bit on last DIGI
         ssid = ssid[:1] + '11' + ssid[3:]       # Set R R Bits True.
-        # print(ssid)
-        # print(hex(int(ssid, 2))[2:])
         return format_hex(ssid)
 
     def encode_c_byte(type_str, p_f_bit=False):
@@ -355,7 +356,7 @@ def read_kiss():
     pack = b''
     ser = serial.Serial(ser_port, ser_baud, timeout=1)
     t = time.time() - 40
-    while True:
+    while not p_end:
         b = ser.read()
         pack += b
         if b:
@@ -386,7 +387,15 @@ send = False
 #except ValueError as e:
 #    print(e)
 try:
-    read_kiss()
+    th = threading.Thread(target=read_kiss).start()
+    i = input("Enter for sending")
+    #read_kiss()
+    send = True
+    inp = input("Enter for sending off")
+    send = False
+    inp = input("Enter for Quit")
+    p_end = True
+
 except KeyboardInterrupt:
     print("Ende ..")
 
