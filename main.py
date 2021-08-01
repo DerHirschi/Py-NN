@@ -3,31 +3,18 @@ import time
 import threading
 import monitor
 
-#data_in = "9a88648484a660ac8462849eb0f2ac8462"
-#test_data_in = "9a88648484a6e09a8864a682ae60868460a682aee140f0620d" # Rest 40f0620d  ### I Frame
-# 9a88648484a6e09a8864a682ae60868460a682aee1 Rest 40f0620d
-test_data_in = "9a88648484a6e0868460a682ae6151"    # MD2SAW to MD2BBS via CB0SAW* CB0SAW* ctl RR2-
-#test_data_in = "ae 8aa8 a88a a4e0 8684 60a6 82ae 7c86 8460 a682 ae67 03f0 3c20 5765 7474 6572 2053 616c 7a77 6564 656c 204a 4f35 324e 5520 3e0d 0a20 5465 6d70 2e3a 2020 3231 2e30 2020 430d 0a20 4c75 6674 6472 7563 6b3a 2020 3130 3136 2e36 3731 3220 2068 5061 0d0a 204c 7566 7466 6575 6368 7469 676b 6569 743a 2020 3534 2e38 2020 25"
-#test_data_in = "ae8aa8a88aa4e0868460a682ae7c868460a682ae6703f03c205765747465722053616c7a776564656c204a4f35324e55203e0d0a2054656d702e3a202032312e302020430d0a204c756674647275636b3a2020313031362e3637313220206850610d0a204c75667466657563687469676b6569743a202035342e38202025"
-# CB0SAW-14 to WETTER via CB0SAW-3 ctl UI^ pid=F0(Text) len 103
-#test_data_in = b'\xc0\x00\x86\x84`\xa6\x82\xae`\x9a\x88d\x84\x84\xa6\xe1Q\xc0'
-#test_data_in = "9a8864a682aee088b060a682ae60868460a682ae61" #cf0445830534157202831313a3530293e"
-#test_data_in = "9a8864a682aee088b060a682ae60868460a682ae61e8" #cf0445830534157202831313a3530293e"
-#test_data_in = "8864a682aee0b060a682ae608460a682aee13f0626c6120303030303030303030303030205445535420544553542044444444444444444444" #cf0445830534157202831313a3530293e"
-#test_data_in = test_data_in.replace(" ", "")
-
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
 
 ax_conn = [{
-    'call': 'MD2SAW-8',
-    'dest': 'TEST11',
+    'call': ('MD2SAW', 8),
+    'dest': ('TEST12', 3),
     'via': ('CB0SAW', False),
     'out': '< TEST fm MD2SAW ( JO52NU ) >',
     'typ': ('UI', False),
     'pid': 6
 },
-{
+{   # 1
     'call': ('MD2SAW', 8),
     'dest': ('DX0SAW', 0),
     'via': [('CB0SAW', 0, False)],
@@ -35,7 +22,7 @@ ax_conn = [{
     'typ': ('SABM', True),
     'pid': 6
 },
-{
+{   # 2
     'call': ('MD2SAW', 8),
     'dest': ('DX0SAW', 0),
     'via': [('CB0SAW', 9, True), ('CB0SAW', 1, True)],
@@ -43,12 +30,36 @@ ax_conn = [{
     'typ': ('SABM', True),
     'pid': 6
 },
-{
+{   # 3
     'call': ('MD2SAW', 8),
     'dest': ('DX0SAW', 0),
     'via': [('CB0SAW', 9, True), ('CB0SAW', 1, True)],
     'out': '',
     'typ': ('DISC', True),
+    'pid': 6
+},
+{   # 4
+    'call': ('MD2SAW', 8),
+    'dest': ('DX0SAW', 0),
+    'via': [('CB0SAW', 0, False), ('DNX527', 0, False)],
+    'out': '',
+    'typ': ('SABM', True),
+    'pid': 6
+},
+{   # 5
+    'call': ('MD2SAW', 8),
+    'dest': ('DX0SAW', 0),
+    'via': [('CB0SAW', 0, False), ('DNX527', 0, False)],
+    'out': '',
+    'typ': ('DISC', True),
+    'pid': 6
+},
+{   # 6
+    'call': ('DNX527', 0),
+    'dest': ('DX0SAW', 0),
+    'via': [],
+    'out': '',
+    'typ': ('SABM', True),
     'pid': 6
 }]
 '''
@@ -311,6 +322,9 @@ def encode_ax25_frame(con_data):
             elif type_str == 'SABM':
                 ret = '001' + ret[3] + '11' + ret[-2:]
                 return format_hex(ret), pid_tr
+            elif type_str == 'DISC':
+                ret = '010' + ret[3] + '00' + ret[-2:]
+                return format_hex(ret), pid_tr
         return format_hex(ret), pid_tr
 
     def encode_pid_byte(pid_in=6):
@@ -373,7 +387,7 @@ def read_kiss():
         b = ser.read()
         pack += b
         if b:
-            if conv_hex(b[0]) == 'c0' and conv_hex(b[1]) != 'c0':
+            if conv_hex(b[0]) == 'c0' and len(pack) > 2:
                 monitor.debug_out("----------------Kiss Data IN ----------------------")
                 try:
                     decode_ax25_frame(pack[2:-1])
@@ -408,15 +422,19 @@ if test:
 else:
     try:
         th = threading.Thread(target=read_kiss).start()
-        i = input("Enter for sending")
-        #read_kiss()
-        send = True
-        inp = input("Enter for sending off")
-        send = False
-        inp = input("Enter for Quit")
-        p_end = True
-
+        while not p_end:
+            i = input("Enter Pack NR to send or Q for Quit: ")
+            if i == 'q' or i == 'Q':
+                p_end = True
+            else:
+                test_snd_packet = int(i)
+                #read_kiss()
+                send = True
+                inp = input("Enter for sending off")
+                send = False
+                print('Send is off')
     except KeyboardInterrupt:
+        p_end = True
         print("Ende ..")
 
 
