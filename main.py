@@ -30,6 +30,14 @@ ax_conn.append({
 ax_conn.append({
     'call': 'MD2SAW-8',
     'dest': 'DX0SAW',
+    'via': ('CB0SAW-9 CB0SAW-1', True),
+    'out': '',
+    'typ': ('SABM', True),
+    'pid': 6
+})
+ax_conn.append({
+    'call': 'MD2SAW-8',
+    'dest': 'DX0SAW',
     'via': ('CB0SAW', True),
     'out': '',
     'typ': ('SABM', True),
@@ -87,7 +95,7 @@ def decode_ax25_frame(data_in):
     ret = {
         "TO": '',
         "FROM": '',
-        "ctl": (),
+        "ctl": [],
         "pid": ()
         # "DIGI1..8"
         # "data"
@@ -172,7 +180,7 @@ def decode_ax25_frame(data_in):
 
         res.append(pid)
         res.append(ctl_str)
-        return ctl_str, res, bi
+        return res
 
     def decode_pid_byte(in_byte):
         flag = ""
@@ -230,7 +238,7 @@ def decode_ax25_frame(data_in):
             if byte_count == 1:     # Control Byte
                 ret['ctl'] = decode_c_byte(conv_hex(i))
             elif byte_count == 2:   # PID Byte in UI and I Frames
-                if ret['ctl'][1][-2]:
+                if ret['ctl'][-2]:
                     ret['pid'] = decode_pid_byte(conv_hex(i))
                 else:
                     tmp_str2.append(i)
@@ -238,7 +246,8 @@ def decode_ax25_frame(data_in):
                 tmp_str2.append(i)
 
     text = str(tmp_str2.decode(errors="ignore"))
-    monitor.debug_out("RES: " + address_str + "\r\n> " + text)
+    monitor.debug_out("RES: " + address_str)
+    monitor.debug_out(text)
     ret["data"] = (tmp_str2, len(tmp_str2))
     if debug:
         for k in ret.keys():
@@ -329,7 +338,7 @@ def encode_ax25_frame(con_data):
     for i in via:
         out_str += encode_address_char(i[0])
         if c + 1 == len(via):                           # Set Stop Bit
-            out_str += encode_ssid(i[1], con_data['via'][0], True)
+            out_str += encode_ssid(i[1], con_data['via'][1], True)  # TODO All vias ..
         else:
             out_str += encode_ssid(i[1])
     c_byte = encode_c_byte(typ[0],typ[1])               # Control Byte
