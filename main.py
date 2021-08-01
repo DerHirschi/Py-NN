@@ -8,8 +8,8 @@ ser_baud = 9600
 
 ax_conn = [{
     'call': ('MD2SAW', 8),
-    'dest': ('TEST12', 3),
-    'via': ('CB0SAW', False),
+    'dest': ('APRS  ', 0),
+    'via': [('CB0SAW', 0, True), ('DX0SAW', 0, False)],
     'out': '< TEST fm MD2SAW ( JO52NU ) >',
     'typ': ('UI', False),
     'pid': 6
@@ -25,7 +25,7 @@ ax_conn = [{
 {   # 2
     'call': ('MD2SAW', 8),
     'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 9, True), ('CB0SAW', 1, True)],
+    'via': [('CB0SAW', 9, True), ('CB0SAW', 0, False)],
     'out': '',
     'typ': ('SABM', True),
     'pid': 6
@@ -33,7 +33,7 @@ ax_conn = [{
 {   # 3
     'call': ('MD2SAW', 8),
     'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 9, True), ('CB0SAW', 1, True)],
+    'via': [('CB0SAW', 9, True), ('CB0SAW', 0, False)],
     'out': '',
     'typ': ('DISC', True),
     'pid': 6
@@ -61,6 +61,22 @@ ax_conn = [{
     'out': '',
     'typ': ('SABM', True),
     'pid': 6
+},
+{   # 7
+    'call': ('MD2SAW', 0),
+    'dest': ('DX0SAW', 0),
+    'via': [('CB0SAW', 0, True)],
+    'out': 'TEST',
+    'typ': ('I', True, 5, 4),   # Type, P/F, N(R), N(S)
+    'pid': 6
+},
+{   # 8
+    'call': ('MD2SAW', 0),
+    'dest': ('DX0SAW', 0),
+    'via': [('CB0SAW', 0, True)],
+    'out': '',
+    'typ': ('RR', True, 0),   # Type, P/F, N(R), N(S)
+    'pid': 6
 }]
 '''
 pid
@@ -72,7 +88,6 @@ pid
 6 = 11110000 Kein Layer 3 implementiert.
 7 = 11111111 Fluchtsymbol, das nächste Byte enthält weitere Layer 3 Protokoll Informationen.
 '''
-p_end = False
 mheard = []
 
 
@@ -150,7 +165,6 @@ def decode_ax25_frame(data_in):
         pf = bin2bl(bi[3])                                                          # P/F
         if not bin2bl(bi[-1]):                              # I-Block   Informationsübertragung
             res.append("I")
-            #res.append([])
             nr = int(bi[:3], 2)
             ns = int(bi[4:7], 2)
             res.append(pf)                                                       # P
@@ -160,7 +174,6 @@ def decode_ax25_frame(data_in):
             pid = True
         elif not bin2bl(bi[-2]) and bin2bl(bi[-1]):         # S-Block
             res.append("S")
-            #res.append([])
             nr = int(bi[:3], 2)
             ss_bits = bi[4:6]
             res.append(pf)                                                       # P/F
@@ -177,7 +190,6 @@ def decode_ax25_frame(data_in):
 
         elif bin2bl(bi[-2]) and bin2bl(bi[-1]):             # U-Block
             res.append("U")
-            # res.append([])
             mmm = bi[0:3]
             mm = bi[4:6]
             # res[1].append(mmm)                                                      # M M M
@@ -308,24 +320,47 @@ def encode_ax25_frame(con_data):
         ssid_in = ssid_in[:1] + '11' + ssid_in[3:]       # Set R R Bits True.
         return format_hex(ssid_in)
 
-    def encode_c_byte(type_str, p_f_bit=False):
+    def encode_c_byte(type_list):
+        flag, p_f_bit = type_list[0], type_list[1]
+        pid_tr, info_f_tr = False, False
         ret = ''.zfill(8)
-        pid_tr = False
         if p_f_bit:
             ret = ret[:3] + '1' + ret[4:]
+        # I Block
+        if flag == 'I':
+            nr, ns = type_list[2], type_list[3]
+            pid_tr, info_f_tr = True, True
+            ret = bin(max(min(nr, 7), 0))[2:].zfill(3) + ret[3:]        # N(R)
+            ret = ret[:4] + bin(max(min(ns, 7), 0))[2:].zfill(3) + '0'  # N(S)
+        # S Block
+        elif flag in ['RR', 'RNR', 'REJ']:
+            nr = type_list[2]
+            ret = ret[:-2] + '01'
+            ret = bin(max(min(nr, 7), 0))[2:].zfill(3) + ret[3:]
+            if flag == 'RR':
+                ret = ret[:4] + '00' + ret[-2:]
+            elif flag == 'RNR':
+                ret = ret[:4] + '01' + ret[-2:]
+            elif flag == 'REJ':
+                ret = ret[:4] + '10' + ret[-2:]
         # U Block
-        if type_str in ["SABM", "DISC", "DM", "UA", "FRMR", "UI"]:
+        elif flag in ["SABM", "DISC", "DM", "UA", "FRMR", "UI"]:
             ret = ret[:-2] + '11'
-            if type_str == 'UI':
-                pid_tr = True
-                return format_hex(ret), pid_tr
-            elif type_str == 'SABM':
+            if flag == 'SABM':
                 ret = '001' + ret[3] + '11' + ret[-2:]
-                return format_hex(ret), pid_tr
-            elif type_str == 'DISC':
+            elif flag == 'DISC':
                 ret = '010' + ret[3] + '00' + ret[-2:]
-                return format_hex(ret), pid_tr
-        return format_hex(ret), pid_tr
+            elif flag == 'DM':
+                ret = '000' + ret[3] + '11' + ret[-2:]
+            elif flag == 'UA':
+                ret = '011' + ret[3] + '11' + ret[-2:]
+            elif flag == 'UI':
+                ret = '000' + ret[3] + '00' + ret[-2:]
+                pid_tr, info_f_tr = True, True
+            elif flag == 'FRMR':
+                ret = '100' + ret[3] + '01' + ret[-2:]
+                info_f_tr = True
+        return format_hex(ret), pid_tr, info_f_tr
 
     def encode_pid_byte(pid_in=6):
         ret = ''.zfill(8)
@@ -359,30 +394,28 @@ def encode_ax25_frame(con_data):
     else:
         out_str += encode_ssid(call_ssid, False, True)  # TODO c/h Bit = Version
 
-    c_byte = encode_c_byte(typ[0],typ[1])               # Control Byte
+    c_byte = encode_c_byte(typ)               # Control Byte
     out_str += c_byte[0]
     if c_byte[1]:                                       # PID Byte
         out_str += encode_pid_byte(pid)
-        for i in data_out:
-            pass
+    if c_byte[2]:                                       # Info Field
+        for i in data_out:                              # TODO Max Frame
             out_str += format(ord(i.encode()), "x")
 
-    # print(out_str)
     monitor.debug_out(out_str)
     monitor.debug_out('############### ENC END ###############################')
     return out_str
 
 
 def send_kiss(ser, data_in):
-    # print("S-Kiss: " + str(data_in))
     monitor.debug_out("Send-Kiss: " + str(data_in))
     ser.write(bytes.fromhex('c000' + data_in + 'c0'))
 
 
 def read_kiss():
+    global test_snd_packet
     pack = b''
     ser = serial.Serial(ser_port, ser_baud, timeout=1)
-    t = time.time() - 40
     while not p_end:
         b = ser.read()
         pack += b
@@ -398,41 +431,41 @@ def read_kiss():
                     monitor.debug_out('', True)
                 monitor.debug_out("_________________________________________________")
                 pack = b''
-        if time.time() - t > 20 and send:
-
+        if test_snd_packet != -1:
             send_kiss(ser, encode_ax25_frame(ax_conn[test_snd_packet]))
-            t = time.time()
+            test_snd_packet = -1
 
 
 debug = True
-send = False
-
-test = False
-test_snd_packet = 2
-
+p_end = False
+test_snd_packet = -1
+'''
 if test:
     enc = encode_ax25_frame(ax_conn[test_snd_packet])
     print(decode_ax25_frame(bytes.fromhex(enc)))
-    '''
+    
     try:
         print(decode_ax25_frame(b'r\x0c\xbd:1\xa6\xcf\r\xefVtPI\xfd\xe1\xa8\xa6\t\xa2\xa2U\x91!D\xffjV\x0b\x97N'))
     except ValueError as e:
         print(e)
-    '''
+'''
+i = input("T = Test\n\rEnter = Go\n\r> ")
+if i == 't' or i == 'T':
+    enc = encode_ax25_frame(ax_conn[test_snd_packet])
+    print(decode_ax25_frame(bytes.fromhex(enc)))
 else:
     try:
         th = threading.Thread(target=read_kiss).start()
         while not p_end:
-            i = input("Enter Pack NR to send or Q for Quit: ")
+            i = input("Q = Quit\n\r0-5 = Send Packet\n\r> ")
             if i == 'q' or i == 'Q':
                 p_end = True
             else:
                 test_snd_packet = int(i)
-                #read_kiss()
-                send = True
-                inp = input("Enter for sending off")
-                send = False
-                print('Send is off')
+                while test_snd_packet != -1:
+                    pass
+                print("Ok ..")
+
     except KeyboardInterrupt:
         p_end = True
         print("Ende ..")
