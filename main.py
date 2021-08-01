@@ -18,31 +18,39 @@ test_data_in = "9a88648484a6e0868460a682ae6151"    # MD2SAW to MD2BBS via CB0SAW
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
-ax_conn = []
-ax_conn.append({
+
+ax_conn = [{
     'call': 'MD2SAW-8',
     'dest': 'TEST11',
     'via': ('CB0SAW', False),
     'out': '< TEST fm MD2SAW ( JO52NU ) >',
     'typ': ('UI', False),
     'pid': 6
-})
-ax_conn.append({
-    'call': 'MD2SAW-8',
-    'dest': 'DX0SAW',
-    'via': ('CB0SAW-9 CB0SAW-1', True),
+},
+{
+    'call': ('MD2SAW', 8),
+    'dest': ('DX0SAW', 0),
+    'via': [('CB0SAW', 0, False)],
     'out': '',
     'typ': ('SABM', True),
     'pid': 6
-})
-ax_conn.append({
-    'call': 'MD2SAW-8',
-    'dest': 'DX0SAW',
-    'via': ('CB0SAW', True),
+},
+{
+    'call': ('MD2SAW', 8),
+    'dest': ('DX0SAW', 0),
+    'via': [('CB0SAW', 9, True), ('CB0SAW', 1, True)],
     'out': '',
     'typ': ('SABM', True),
     'pid': 6
-})
+},
+{
+    'call': ('MD2SAW', 8),
+    'dest': ('DX0SAW', 0),
+    'via': [('CB0SAW', 9, True), ('CB0SAW', 1, True)],
+    'out': '',
+    'typ': ('DISC', True),
+    'pid': 6
+}]
 '''
 pid
 1 = yy01yyyy AX.25 Layer 3 implementiert.
@@ -100,6 +108,8 @@ def decode_ax25_frame(data_in):
         # "DIGI1..8"
         # "data"
     }
+
+    monitor.debug_out('################ DEC ##################################')
 
     def decode_address_char(in_byte):    # Convert to 7 Bit ASCII
         bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]
@@ -228,6 +238,7 @@ def decode_ax25_frame(data_in):
                         address_str += "*"
                 if tmp[0]:                                  # S Bit ( Stop Bit )
                     end = True                              # End Address fields
+                    monitor.debug_out('via Stop Bit found .. ' + address_str)
                 else:
                     address_str += ":"
                 '''CALL, int(SSID), H-BIT, R-BITs'''
@@ -254,21 +265,16 @@ def decode_ax25_frame(data_in):
             monitor.debug_out(ret[k])
     monitor.monitor(ret)
     mh_data(ret)
+    monitor.debug_out('################ DEC END ##############################')
     return address_str, ret
 
 
 def encode_ax25_frame(con_data):
     monitor.debug_out('################ ENC ##################################')
     out_str = ''
-    c, d = get_ssid(con_data['call']), get_ssid(con_data['dest'])
-    call, call_ssid = c[0], c[1]
-    dest, dest_ssid = d[0], d[1]
-    via = con_data['via'][0].split(' ')
-    i = 0
-    for n in via:
-        t = get_ssid(n)
-        via[i] = (t[0], t[1])
-        i += 1
+    temp = con_data['call'], con_data['dest']
+    call, call_ssid, dest, dest_ssid = temp[0][0], temp[0][1], temp[1][0], temp[1][1]
+    via = con_data['via']
 
     typ = con_data['typ']
     pid = con_data['pid']
@@ -282,17 +288,14 @@ def encode_ax25_frame(con_data):
             out += conv_hex(i << 1)
         return out
 
-    def encode_ssid(in_ascii_str='', c_h_bit=False, stop_bit= False):
-        if in_ascii_str == '':
-            in_ascii_str = '0'
-        ssid = int(in_ascii_str)
-        ssid = bin(ssid << 1)[2:].zfill(8)
+    def encode_ssid(ssid_in=0, c_h_bit=False, stop_bit= False):
+        ssid_in = bin(ssid_in << 1)[2:].zfill(8)
         if c_h_bit:
-            ssid = '1' + ssid[1:]               # Set C or H Bit. H Bit if msg was geDigit
+            ssid_in = '1' + ssid_in[1:]               # Set C or H Bit. H Bit if msg was geDigit
         if stop_bit:
-            ssid = ssid[:-1] + '1'              # Set Stop Bit on last DIGI
-        ssid = ssid[:1] + '11' + ssid[3:]       # Set R R Bits True.
-        return format_hex(ssid)
+            ssid_in = ssid_in[:-1] + '1'              # Set Stop Bit on last DIGI
+        ssid_in = ssid_in[:1] + '11' + ssid_in[3:]       # Set R R Bits True.
+        return format_hex(ssid_in)
 
     def encode_c_byte(type_str, p_f_bit=False):
         ret = ''.zfill(8)
@@ -328,19 +331,20 @@ def encode_ax25_frame(con_data):
             return format_hex('11111111')
 
     out_str += encode_address_char(dest)
-    out_str += encode_ssid(dest_ssid, True)
+    out_str += encode_ssid(dest_ssid, True)             # TODO c/h Bit = Version
     out_str += encode_address_char(call)
     if via:                                             # Set Stop Bit
         out_str += encode_ssid(call_ssid)
+        for i in via:
+            out_str += encode_address_char(i[0])
+            if i == via[-1]:                           # Set Stop Bit
+                out_str += encode_ssid(i[1], i[2], True)
+                monitor.debug_out('via Stop Bit set.. ' + i[0])
+            else:
+                out_str += encode_ssid(i[1], i[2])
     else:
-        out_str += encode_ssid(call_ssid, False, True)
-    c = 0
-    for i in via:
-        out_str += encode_address_char(i[0])
-        if c + 1 == len(via):                           # Set Stop Bit
-            out_str += encode_ssid(i[1], con_data['via'][1], True)  # TODO All vias ..
-        else:
-            out_str += encode_ssid(i[1])
+        out_str += encode_ssid(call_ssid, False, True)  # TODO c/h Bit = Version
+
     c_byte = encode_c_byte(typ[0],typ[1])               # Control Byte
     out_str += c_byte[0]
     if c_byte[1]:                                       # PID Byte
@@ -351,7 +355,7 @@ def encode_ax25_frame(con_data):
 
     # print(out_str)
     monitor.debug_out(out_str)
-    monitor.debug_out('############### ENC ENDE ##############################')
+    monitor.debug_out('############### ENC END ###############################')
     return out_str
 
 
@@ -369,8 +373,8 @@ def read_kiss():
         b = ser.read()
         pack += b
         if b:
-            if conv_hex(b[0]) == 'c0' and len(pack) > 2:
-                monitor.debug_out("-------------------------------------------------")
+            if conv_hex(b[0]) == 'c0' and conv_hex(b[1]) != 'c0':
+                monitor.debug_out("----------------Kiss Data IN ----------------------")
                 try:
                     decode_ax25_frame(pack[2:-1])
                 except ValueError as e:
@@ -380,32 +384,39 @@ def read_kiss():
                     monitor.debug_out('', True)
                 monitor.debug_out("_________________________________________________")
                 pack = b''
-        if time.time() - t > 60 and send:
+        if time.time() - t > 20 and send:
 
-            send_kiss(ser, encode_ax25_frame(ax_conn[1]))
+            send_kiss(ser, encode_ax25_frame(ax_conn[test_snd_packet]))
             t = time.time()
 
 
 debug = True
 send = False
 
-#enc = encode_ax25_frame(ax_conn[1])
-#print(decode_ax25_frame(bytes.fromhex(enc)))
-#try:
-#    print(decode_ax25_frame(b'r\x0c\xbd:1\xa6\xcf\r\xefVtPI\xfd\xe1\xa8\xa6\t\xa2\xa2U\x91!D\xffjV\x0b\x97N'))
-#except ValueError as e:
-#    print(e)
-try:
-    th = threading.Thread(target=read_kiss).start()
-    i = input("Enter for sending")
-    #read_kiss()
-    send = True
-    inp = input("Enter for sending off")
-    send = False
-    inp = input("Enter for Quit")
-    p_end = True
+test = False
+test_snd_packet = 2
 
-except KeyboardInterrupt:
-    print("Ende ..")
+if test:
+    enc = encode_ax25_frame(ax_conn[test_snd_packet])
+    print(decode_ax25_frame(bytes.fromhex(enc)))
+    '''
+    try:
+        print(decode_ax25_frame(b'r\x0c\xbd:1\xa6\xcf\r\xefVtPI\xfd\xe1\xa8\xa6\t\xa2\xa2U\x91!D\xffjV\x0b\x97N'))
+    except ValueError as e:
+        print(e)
+    '''
+else:
+    try:
+        th = threading.Thread(target=read_kiss).start()
+        i = input("Enter for sending")
+        #read_kiss()
+        send = True
+        inp = input("Enter for sending off")
+        send = False
+        inp = input("Enter for Quit")
+        p_end = True
+
+    except KeyboardInterrupt:
+        print("Ende ..")
 
 
