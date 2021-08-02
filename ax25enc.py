@@ -1,113 +1,5 @@
-import serial
-import time
-import threading
 import monitor
-
-ser_port = "/tmp/ptyAX5"
-ser_baud = 1200
-# TEST DATA
-
-ax_conn = [{    # For Testmode
-    'call': ('MD2SAW', 8),
-    'dest': ('APRS  ', 0),
-    'via': [('DX0SAW', 0, False)],
-    'out': '< TEST fm MD2SAW ( JO52NU ) >',
-    'typ': ('UI', True),
-    'pid': 6
-},
-{   # 1
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, False)],
-    'out': '',
-    'typ': ('SABM', True),
-    'pid': 6
-},
-{   # 2
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 9, True), ('CB0SAW', 0, False)],
-    'out': '',
-    'typ': ('SABM', True),
-    'pid': 6
-},
-{   # 3
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 9, True), ('CB0SAW', 0, False)],
-    'out': '',
-    'typ': ('DISC', True),
-    'pid': 6
-},
-{   # 4
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, False), ('DNX527', 0, False)],
-    'out': '',
-    'typ': ('SABM', True),
-    'pid': 6
-},
-{   # 5
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, False), ('DNX527', 0, False)],
-    'out': '',
-    'typ': ('DISC', True),
-    'pid': 6
-},
-{   # 6
-    'call': ('DNX527', 0),
-    'dest': ('DX0SAW', 0),
-    'via': [],
-    'out': '',
-    'typ': ('SABM', True),
-    'pid': 6
-},
-{   # 7
-    'call': ('MD2SAW', 0),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, True)],
-    'out': 'TEST',
-    'typ': ('I', True, 5, 4),   # Type, P/F, N(R), N(S)
-    'pid': 6
-},
-{   # 8
-    'call': ('MD2SAW', 0),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, True)],
-    'out': '',
-    'typ': ('RR', True, 0),   # Type, P/F, N(R), N(S)
-    'pid': 6
-}]
-'''
-pid
-1 = yy01yyyy AX.25 Layer 3 implementiert.
-2 = yy10yyyy AX.25 Layer 3 implementiert.
-3 = 11001100 Internet Protokoll Datagramm Layer 3 implementiert.
-4 = 11001101 Adress Resolution Protokoll Layer 3 implementiert.
-5 = 11001111 NET/ROM Protokoll Layer 3/4 implementiert.
-6 = 11110000 Kein Layer 3 implementiert.
-7 = 11111111 Fluchtsymbol, das nächste Byte enthält weitere Layer 3 Protokoll Informationen.
-'''
-# TESTING and DEBUGGING
 debug = monitor.debug
-test_snd_packet = -1
-# Globals
-ax25MaxBufferTX = 20                    # Max Frames to send from Buffer
-# ax25MaxFrame = 3
-# ax25MaxTXtime = 30
-# ax25T1 = 500
-# ax25RET = 5
-
-tx_buffer = []
-p_end, send_tr = False, False
-
-'''
-if ax25RET > 3:
-    ax25T1 = (ax25T1 * (ax25RET + 4)) / 100                     # TODO RTT
-else:
-    ax25T1 = (ax25T1 * ax25RET) / 100                           # TODO RTT
-'''
 
 
 def bin2bl(inp):
@@ -133,6 +25,25 @@ def get_ssid(inp):
         return inp, ''
 
 
+def get_call_str(call, ssid=0):
+    if ssid:
+        return call + '-' + str(ssid)
+    else:
+        return call
+
+
+def reverse_addr_str(inp=''):
+    inp = inp.split(':')
+    addr, via, ret = inp[:2], inp[2:], ''
+    addr.reverse()
+    via.reverse()
+    for el in addr:
+        ret += el + ':'
+    for el in via:
+        ret += el + ':'
+    return ret[:-1]
+
+
 def format_hex(inp=''):
     fl = hex(int(inp, 2))[2:]
     if len(fl) == 1:
@@ -156,9 +67,9 @@ def decode_ax25_frame(data_in):
         bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]
         he = hex(int(bin_char, 2))
         try:
-            return bytes.fromhex(he[2:]).decode()
-        except ValueError as e:
-            raise e
+            return bytes.fromhex(he[2:]).decode().replace(' ', '')
+        except ValueError as er:
+            raise er
 
     def decode_ssid(in_byte):       # Address > CRRSSID1    Digi > HRRSSID1
         bi = bin(int(in_byte, 16))[2:].zfill(8)
@@ -301,7 +212,7 @@ def decode_ax25_frame(data_in):
     if debug:
         for k in ret.keys():
             monitor.debug_out(ret[k])
-    return address_str, ret
+    return address_str.replace('*', ''), ret
 
 
 def encode_ax25_frame(con_data):
@@ -316,7 +227,8 @@ def encode_ax25_frame(con_data):
     data_out = con_data['out']
     monitor.debug_out(str(con_data))
 
-    def encode_address_char(in_ascii_str=''):   # TODO Adressbereich auffüllen wenn weniger als 6 chars
+    def encode_address_char(in_ascii_str=''):
+        in_ascii_str = "{:<6}".format(in_ascii_str)
         t = bytearray(in_ascii_str.encode('ASCII'))
         out = ''
         for i in t:
@@ -424,7 +336,7 @@ def send_kiss(ser, data_in):
     monitor.debug_out("Send-Kiss: " + str(data_in))
     ser.write(bytes.fromhex('c000' + data_in + 'c0'))
 
-
+'''
 def read_kiss():
     global test_snd_packet, tx_buffer
     pack = b''
@@ -437,6 +349,11 @@ def read_kiss():
                 monitor.debug_out("----------------Kiss Data IN ----------------------")
                 try:
                     out = decode_ax25_frame(pack[2:-1])
+                    # if out[0] in
+                    if out[0] in rx_buffer.keys():
+                        rx_buffer[out[0]].append(out[1])
+                    else:
+                        rx_buffer[out[0]] = [out[1]]
                     monitor.monitor(out[1])
                     monitor.debug_out('################ DEC END ##############################')
 
@@ -456,14 +373,14 @@ def read_kiss():
 
         # TESTING
         if test_snd_packet != -1 and send_tr:
-            send_kiss(ser, encode_ax25_frame(ax_conn[test_snd_packet]))
+            send_kiss(ser, encode_ax25_frame(ax_test_conn[test_snd_packet]))
             test_snd_packet = -1
             while send_tr:
                 time.sleep(0.01)
 
 
 ##################################################################################################################
-
+'''
 
 
 '''
@@ -472,32 +389,5 @@ def read_kiss():
         print(decode_ax25_frame(b'r\x0c\xbd:1\xa6\xcf\r\xefVtPI\xfd\xe1\xa8\xa6\t\xa2\xa2U\x91!D\xffjV\x0b\x97N'))
 
 '''
-'''
-i = input("T = Test\n\rEnter = Go\n\r> ")
-if i == 't' or i == 'T':
-    enc = encode_ax25_frame(ax_conn[test_snd_packet])
-    print(decode_ax25_frame(bytes.fromhex(enc)))
-else:
-    try:
-        th = threading.Thread(target=read_kiss).start()
-        while not p_end:
-            print("_______________________________________________")
-            i = input("Q = Quit\n\r0-5 = Send Packet\n\rT = Fill TX Buffer with Testdata\n\r> ")
-            if i.upper() == 'Q':
-                p_end = True
-            elif i.upper() == 'T':
-                tx_buffer = ax_conn
-                print("OK ..")
-            elif i.isdigit():
-                test_snd_packet = int(i)
-                send_tr = True
-                while test_snd_packet != -1:
-                    time.sleep(0.01)
-                send_tr = False
-                print("Ok ..")
 
-    except KeyboardInterrupt:
-        p_end = True
-        print("Ende ..")
-'''
 
