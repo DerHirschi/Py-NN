@@ -4,14 +4,14 @@ import threading
 import monitor
 
 ser_port = "/tmp/ptyAX5"
-ser_baud = 9600
-
+ser_baud = 1200
+# TEST DATA
 ax_conn = [{
     'call': ('MD2SAW', 8),
     'dest': ('APRS  ', 0),
-    'via': [('CB0SAW', 0, True), ('DX0SAW', 0, False)],
+    'via': [('DX0SAW', 0, False)],
     'out': '< TEST fm MD2SAW ( JO52NU ) >',
-    'typ': ('UI', False),
+    'typ': ('UI', True),
     'pid': 6
 },
 {   # 1
@@ -88,11 +88,25 @@ pid
 6 = 11110000 Kein Layer 3 implementiert.
 7 = 11111111 Fluchtsymbol, das nächste Byte enthält weitere Layer 3 Protokoll Informationen.
 '''
-mheard = []
+# TESTING and DEBUGGING
+debug = monitor.debug
+test_snd_packet = -1
+# Globals
+ax25MaxBufferTX = 20                    # Max Frames to send from Buffer
+# ax25MaxFrame = 3
+# ax25MaxTXtime = 30
+# ax25T1 = 500
+# ax25RET = 5
 
+tx_buffer = []
+p_end, send_tr = False, False
 
-def mh_data(frame_in):
-    pass
+'''
+if ax25RET > 3:
+    ax25T1 = (ax25T1 * (ax25RET + 4)) / 100                     # TODO RTT
+else:
+    ax25T1 = (ax25T1 * ax25RET) / 100                           # TODO RTT
+'''
 
 
 def bin2bl(inp):
@@ -286,9 +300,6 @@ def decode_ax25_frame(data_in):
     if debug:
         for k in ret.keys():
             monitor.debug_out(ret[k])
-    monitor.monitor(ret)
-    mh_data(ret)
-    monitor.debug_out('################ DEC END ##############################')
     return address_str, ret
 
 
@@ -365,19 +376,20 @@ def encode_ax25_frame(con_data):
     def encode_pid_byte(pid_in=6):
         ret = ''.zfill(8)
         if pid_in == 1:
-            return format_hex(ret[:2] + '01' + ret[4:])
+            ret = '00010000'
         elif pid_in == 2:
-            return format_hex(ret[:2] + '10' + ret[4:])
+            ret = '00100000'
         elif pid_in == 3:
-            return format_hex('11001100')
+            ret = '11001100'
         elif pid_in == 4:
-            return format_hex('11001101')
+            ret = '11001101'
         elif pid_in == 5:
-            return format_hex('11001111')
+            ret = '11001111'
         elif pid_in == 6:
-            return format_hex('11110000')
+            ret = '11110000'
         elif pid_in == 7:
-            return format_hex('11111111')
+            ret = '11111111'
+        return format_hex(ret)
 
     out_str += encode_address_char(dest)
     out_str += encode_ssid(dest_ssid, True)             # TODO c/h Bit = Version
@@ -399,7 +411,7 @@ def encode_ax25_frame(con_data):
     if c_byte[1]:                                       # PID Byte
         out_str += encode_pid_byte(pid)
     if c_byte[2]:                                       # Info Field
-        for i in data_out:                              # TODO Max Frame
+        for i in data_out:                              # TODO Max Paclen
             out_str += format(ord(i.encode()), "x")
 
     monitor.debug_out(out_str)
@@ -413,7 +425,7 @@ def send_kiss(ser, data_in):
 
 
 def read_kiss():
-    global test_snd_packet
+    global test_snd_packet, tx_buffer
     pack = b''
     ser = serial.Serial(ser_port, ser_baud, timeout=1)
     while not p_end:
@@ -423,7 +435,10 @@ def read_kiss():
             if conv_hex(b[0]) == 'c0' and len(pack) > 2:
                 monitor.debug_out("----------------Kiss Data IN ----------------------")
                 try:
-                    decode_ax25_frame(pack[2:-1])
+                    out = decode_ax25_frame(pack[2:-1])
+                    monitor.monitor(out[1])
+                    monitor.debug_out('################ DEC END ##############################')
+
                 except ValueError as e:
                     monitor.debug_out("-------------- ERROR beim Decoden !! -------------", True)
                     monitor.debug_out(e, True)
@@ -431,24 +446,32 @@ def read_kiss():
                     monitor.debug_out('', True)
                 monitor.debug_out("_________________________________________________")
                 pack = b''
-        if test_snd_packet != -1:
+        elif tx_buffer:
+            c = 0
+            while tx_buffer and c < ax25MaxBufferTX:
+                send_kiss(ser, encode_ax25_frame(tx_buffer[0]))
+                tx_buffer = tx_buffer[1:]
+                c += 1
+
+        # TESTING
+        if test_snd_packet != -1 and send_tr:
             send_kiss(ser, encode_ax25_frame(ax_conn[test_snd_packet]))
             test_snd_packet = -1
+            while send_tr:
+                time.sleep(0.01)
 
 
-debug = True
-p_end = False
-test_snd_packet = -1
+##################################################################################################################
+
+
+
 '''
-if test:
-    enc = encode_ax25_frame(ax_conn[test_snd_packet])
-    print(decode_ax25_frame(bytes.fromhex(enc)))
-    
+
     try:
         print(decode_ax25_frame(b'r\x0c\xbd:1\xa6\xcf\r\xefVtPI\xfd\xe1\xa8\xa6\t\xa2\xa2U\x91!D\xffjV\x0b\x97N'))
-    except ValueError as e:
-        print(e)
+
 '''
+
 i = input("T = Test\n\rEnter = Go\n\r> ")
 if i == 't' or i == 'T':
     enc = encode_ax25_frame(ax_conn[test_snd_packet])
@@ -457,13 +480,19 @@ else:
     try:
         th = threading.Thread(target=read_kiss).start()
         while not p_end:
-            i = input("Q = Quit\n\r0-5 = Send Packet\n\r> ")
-            if i == 'q' or i == 'Q':
+            print("_______________________________________________")
+            i = input("Q = Quit\n\r0-5 = Send Packet\n\rT = Fill TX Buffer with Testdata\n\r> ")
+            if i.upper() == 'Q':
                 p_end = True
-            else:
+            elif i.upper() == 'T':
+                tx_buffer = ax_conn
+                print("OK ..")
+            elif i.isdigit():
                 test_snd_packet = int(i)
+                send_tr = True
                 while test_snd_packet != -1:
-                    pass
+                    time.sleep(0.01)
+                send_tr = False
                 print("Ok ..")
 
     except KeyboardInterrupt:
