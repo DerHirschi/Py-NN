@@ -20,9 +20,9 @@ def conv_hex(inp):
 
 def get_ssid(inp):
     if inp.find('-') != -1:
-        return inp[:inp.find('-')].upper(), inp[inp.find('-') + 1:].upper()
+        return inp[:inp.find('-')].upper(), int(inp[inp.find('-') + 1:].upper())
     else:
-        return inp, ''
+        return inp, 0
 
 
 def get_call_str(call, ssid=0):
@@ -141,7 +141,9 @@ def decode_ax25_frame(data_in):
 
         res.append(pid)
         res.append(ctl_str)
-        res.append(str(hex(int(in_byte, 16))))
+        if monitor.debug:
+            res.append(hex(int(in_byte, 16)))       # For Monitor
+        res.append(int(in_byte, 16))
         return res
 
     def decode_pid_byte(in_byte):
@@ -190,7 +192,7 @@ def decode_ax25_frame(data_in):
                         address_str += "*"
                 if tmp[0]:                                  # S Bit ( Stop Bit )
                     end = True                              # End Address fields
-                    monitor.debug_out('via Stop Bit found .. ' + address_str)
+                    # monitor.debug_out('via Stop Bit found .. ' + address_str)
                 else:
                     address_str += ":"
                 '''CALL, int(SSID), H-BIT, R-BITs'''
@@ -238,13 +240,13 @@ def encode_ax25_frame(con_data):
             out += conv_hex(i << 1)
         return out
 
-    def encode_ssid(ssid_in=0, c_h_bit=False, stop_bit= False):
+    def encode_ssid(ssid_in=0, c_h_bit=False, stop_bit= False):     # TODO C Bit Vers command
         ssid_in = bin(ssid_in << 1)[2:].zfill(8)
         if c_h_bit:
             ssid_in = '1' + ssid_in[1:]               # Set C or H Bit. H Bit if msg was geDigit
         if stop_bit:
             ssid_in = ssid_in[:-1] + '1'              # Set Stop Bit on last DIGI
-        ssid_in = ssid_in[:1] + '11' + ssid_in[3:]       # Set R R Bits True.
+        ssid_in = ssid_in[:1] + '11' + ssid_in[3:]    # Set R R Bits True.
         return format_hex(ssid_in)
 
     def encode_c_byte(type_list):

@@ -7,9 +7,9 @@ import serial
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 1200
-MyCall = 'MD2SAW-1'
+MyCallStr = 'MD2SAW-8'
 
-MyCall = ax.get_ssid(MyCall)
+MyCall = ax.get_ssid(MyCallStr)
 # TEST DATA
 ax_test_pac = [{
     'call': ('MD2SAW', 8),
@@ -139,6 +139,17 @@ def get_conn_item(dest_in=('', 0), via_in=None):
     }
 
 
+def get_tx_packet_item(conn_id):
+    return {
+        'call': ax_conn[conn_id]['call'],
+        'dest': ax_conn[conn_id]['dest'],
+        'via': ax_conn[conn_id]['via'],
+        'out': '',
+        'typ': ('SABM', True, 0),   # Type, P/F, N(R), N(S)
+        'pid': 6
+    }
+
+
 def set_t1(conn_key):
     retry = ax_conn[conn_key]['ret']
     if retry > 3:
@@ -149,20 +160,73 @@ def set_t1(conn_key):
 
 def handle_rx(inp):
     monitor.monitor(inp[1])
-    addr_str = ax.reverse_addr_str(inp[0])
-    if addr_str in ax_conn.keys():
+    conn_id = ax.reverse_addr_str(inp[0])
+    if conn_id in ax_conn.keys():
         monitor.debug_out('')
         monitor.debug_out('###### Conn Data In ########')
-        monitor.debug_out(addr_str)
+        monitor.debug_out(conn_id)
+        print(ax_conn[conn_id]['rx'])
+        print(type(ax_conn[conn_id]['rx']))
+        tmp = ax_conn[conn_id]['rx']
+        tmp.append(inp[1])
+        ax_conn[conn_id]['rx'] = tmp
+        ax_conn[conn_id]['t1'], ax_conn[conn_id]['ret'] = 0, 0
 
-        ax_conn[addr_str]['rx'] = inp[1]
-        ax_conn[addr_str]['t1'], ax_conn[addr_str]['ret'] = 0, 0
-
-        monitor.debug_out(ax_conn[addr_str])
+        monitor.debug_out(ax_conn[conn_id])
         monitor.debug_out('#### Conn Data In END ######')
         monitor.debug_out('')
-    elif inp[1]['ctl'][0] == 'SABM':
-        pass
+    elif inp[1]['ctl'][-1] == 0x3f and inp[0].split(':')[0] == MyCallStr:       # Incoming connection
+        monitor.debug_out('')
+        monitor.debug_out('#### Incoming Conn Data In ######')
+        monitor.debug_out(conn_id)
+        conn_in(conn_id, dest=ax.get_ssid(conn_id.split(':')[0]), inp=inp[1])
+
+        # ax_conn[addr_str] = get_conn_item(ax.get_ssid(addr_str.split(':')[0]))
+        # ax_conn[addr_str]['tx'] = [get_tx_packet_item(addr_str)]
+
+        monitor.debug_out(ax_conn[conn_id])
+        monitor.debug_out('#### Incoming Conn Data In END ######')
+        monitor.debug_out('')
+
+
+def conn():
+
+    os.system('clear')
+    dest = input('Enter Dest. Call\r\n> ').upper()
+    addr_str = dest + ':' + ax.get_call_str(MyCall[0], MyCall[1])
+    dest = ax.get_ssid(dest)
+    print('')
+    via = input('Enter via\r\n> ').upper()
+    via = via.split(' ')
+    via_list = []
+    for el in via:
+        addr_str += ':' + el
+        via_list.append(ax.get_ssid(el))         # TODO ? ?? Digi Trigger ??
+    print(addr_str)
+    ax_conn[addr_str] = get_conn_item(dest)
+    ax_conn[addr_str]['via'] = via_list
+    print(ax_conn)
+    print("OK ..")
+
+
+def conn_in(id, dest, inp):
+    ax_conn[id] = get_conn_item(ax.get_ssid(id.split(':')[0]))
+    ax_conn[id]['dest'] = dest
+    via = id.split(':')[2:]
+    for el in via:
+        ax_conn[id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
+    ax_conn[id]['rx'] = [inp]
+    tx_pack = get_tx_packet_item(id)
+    tx_pack['typ'] = ('UA', False)
+    ax_conn[id]['tx'] = [tx_pack]
+
+
+def fetch_txbuffer():
+    for k in ax_conn.keys():
+        tmp = ax_conn[k]['tx']
+        for el in tmp:
+            tx_buffer.append(el)
+            ax_conn[k]['tx'] = ax_conn[k]['tx'][1:]
 
 ##################################################################################################################
 
@@ -174,6 +238,11 @@ def read_kiss():
     while not p_end:
         b = ser.read()
         pack += b
+        fetch_txbuffer()
+
+        if tx_buffer:
+            monitor.debug_out(ax_conn)
+            monitor.debug_out(tx_buffer)
         if b:           # RX ###################################################################################
             if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
                 monitor.debug_out("----------------Kiss Data IN ----------------------")
@@ -200,6 +269,7 @@ def read_kiss():
         elif tx_buffer:             # TX #############################################################
             c = 0
             while tx_buffer and c < ax25MaxBufferTX:
+                print(tx_buffer)
                 ax.send_kiss(ser, ax.encode_ax25_frame(tx_buffer[0]))
                 tx_buffer = tx_buffer[1:]
                 c += 1
@@ -213,25 +283,6 @@ def read_kiss():
 
 
 ##################################################################################################################
-
-def conn():
-
-    os.system('clear')
-    dest = input('Enter Dest. Call\r\n> ').upper()
-    addr_str = dest + ':' + ax.get_call_str(MyCall[0], MyCall[1])
-    dest = ax.get_ssid(dest)
-    print('')
-    via = input('Enter via\r\n> ').upper()
-    via = via.split(' ')
-    via_list = []
-    for el in via:
-        addr_str += ':' + el
-        via_list.append(ax.get_ssid(el))         # TODO ? ?? Digi Trigger ??
-    print(addr_str)
-    ax_conn[addr_str] = get_conn_item(dest)
-    print(ax_conn)
-    print("OK ..")
-
 
 i = input("T = Test\n\rEnter = Go\n\r> ")
 if i == 't' or i == 'T':

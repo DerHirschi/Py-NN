@@ -8,6 +8,10 @@ debug = True
 
 
 def monitor(data):
+    db_c = 0
+    if debug:
+        db_c = 1
+
     f = open(mon_f, 'a')
     out = ''
     now = datetime.now()  # current date and time
@@ -38,13 +42,14 @@ def monitor(data):
         out += '('
         i = 1
         for e in data['ctl']:
-            if (i < len(data['ctl']) - 2) and i > 1:
+            if (i < len(data['ctl']) - 2 + db_c) and i > 1:
                 out += ' '
-            if i < len(data['ctl']) - 2:
+            if i < len(data['ctl']) - 2 + db_c:
                 out += str(e)
             i += 1
-        out += ' ' + str(data['ctl'][-1]) + ') '
-        out += data['ctl'][-2]
+        if debug:
+            out += ' ' + str(data['ctl'][(-1 - db_c)])
+        out += ') ' + data['ctl'][(-2 - db_c)]
         if data['data'][1]:
             out += ' (len:' + str(data['data'][1]) + ')'
             out += '\r\n'
