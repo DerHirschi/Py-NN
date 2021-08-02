@@ -6,7 +6,8 @@ import monitor
 ser_port = "/tmp/ptyAX5"
 ser_baud = 1200
 # TEST DATA
-ax_conn = [{
+
+ax_conn = [{    # For Testmode
     'call': ('MD2SAW', 8),
     'dest': ('APRS  ', 0),
     'via': [('DX0SAW', 0, False)],
@@ -471,7 +472,7 @@ def read_kiss():
         print(decode_ax25_frame(b'r\x0c\xbd:1\xa6\xcf\r\xefVtPI\xfd\xe1\xa8\xa6\t\xa2\xa2U\x91!D\xffjV\x0b\x97N'))
 
 '''
-
+'''
 i = input("T = Test\n\rEnter = Go\n\r> ")
 if i == 't' or i == 'T':
     enc = encode_ax25_frame(ax_conn[test_snd_packet])
@@ -498,5 +499,5 @@ else:
     except KeyboardInterrupt:
         p_end = True
         print("Ende ..")
-
+'''
 
