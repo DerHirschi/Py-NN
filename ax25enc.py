@@ -69,7 +69,7 @@ def decode_ax25_frame(data_in):
         try:
             return bytes.fromhex(he[2:]).decode().replace(' ', '')
         except ValueError as er:
-            raise er
+            raise (er, in_byte)
 
     def decode_ssid(in_byte):       # Address > CRRSSID1    Digi > HRRSSID1
         bi = bin(int(in_byte, 16))[2:].zfill(8)
@@ -80,6 +80,8 @@ def decode_ax25_frame(data_in):
         return s_bit, c_bit, ssid, r_bits
 
     def decode_c_byte(in_byte):
+        monitor.debug_out('C-Byte HEX: ' + str(hex(int(in_byte, 16))))
+
         def bl2str(inp):
             if inp:
                 return '-'
@@ -139,6 +141,7 @@ def decode_ax25_frame(data_in):
 
         res.append(pid)
         res.append(ctl_str)
+        res.append(str(hex(int(in_byte, 16))))
         return res
 
     def decode_pid_byte(in_byte):

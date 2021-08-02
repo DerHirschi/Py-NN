@@ -7,7 +7,7 @@ import serial
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 1200
-MyCall = 'MD2SAW-8'
+MyCall = 'MD2SAW-1'
 
 MyCall = ax.get_ssid(MyCall)
 # TEST DATA
@@ -101,14 +101,9 @@ test_snd_packet = -1
 ax25MaxBufferTX = 20                    # Max Frames to send from Buffer
 # ax25MaxFrame = 3
 # ax25MaxTXtime = 30
-# ax25T1 = 500
-# ax25RET = 5
-'''
-if ax25RET > 3:
-    ax25T1 = (ax25T1 * (ax25RET + 4)) / 100                     # TODO RTT
-else:
-    ax25T1 = (ax25T1 * ax25RET) / 100                           # TODO RTT
-'''
+ax25T1 = 500
+# ax25MaxRetry = 20
+
 
 tx_buffer = []
 rx_buffer = {}
@@ -135,14 +130,92 @@ def get_conn_item(dest_in=('', 0), via_in=None):
         'tx': [],
         'rx': [],
         'stat': 'SABM',
-        't1': 0.0,
+        'pf': True,
         'nr': 0,
         'ns': 0,
-        'pf': True
+        't1': 0.0,
+        'ret': 0
+
     }
 
 
+def set_t1(conn_key):
+    retry = ax_conn[conn_key]['ret']
+    if retry > 3:
+        ax_conn[conn_key]['t1'] = ((ax25T1 * (retry + 4)) / 100) + time.time()     # TODO RTT
+    else:
+        ax_conn[conn_key]['t1'] = ((ax25T1 * retry) / 100) + time.time()           # TODO RTT
+
+
+def handle_rx(inp):
+    monitor.monitor(inp[1])
+    addr_str = ax.reverse_addr_str(inp[0])
+    if addr_str in ax_conn.keys():
+        monitor.debug_out('')
+        monitor.debug_out('###### Conn Data In ########')
+        monitor.debug_out(addr_str)
+
+        ax_conn[addr_str]['rx'] = inp[1]
+        ax_conn[addr_str]['t1'], ax_conn[addr_str]['ret'] = 0, 0
+
+        monitor.debug_out(ax_conn[addr_str])
+        monitor.debug_out('#### Conn Data In END ######')
+        monitor.debug_out('')
+    elif inp[1]['ctl'][0] == 'SABM':
+        pass
+
+##################################################################################################################
+
+
+def read_kiss():
+    global test_snd_packet, tx_buffer
+    pack = b''
+    ser = serial.Serial(ser_port, ser_baud, timeout=1)
+    while not p_end:
+        b = ser.read()
+        pack += b
+        if b:           # RX ###################################################################################
+            if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
+                monitor.debug_out("----------------Kiss Data IN ----------------------")
+                try:
+                    out = ax.decode_ax25_frame(pack[2:-1])      # DEKISS
+                    handle_rx(out)
+
+                    ############ TEST ##############
+                    if out[0] in rx_buffer.keys():
+                        rx_buffer[out[0]].append(out[1])
+                    else:
+                        rx_buffer[out[0]] = [out[1]]
+                    ########## TEST ENDE ###########
+
+                    monitor.debug_out('################ DEC END ##############################')
+
+                except ValueError as e:
+                    monitor.debug_out("-------------- ERROR beim Decoden !! -------------", True)
+                    monitor.debug_out(e, True)
+                    monitor.debug_out(pack, True)
+                    monitor.debug_out('', True)
+                monitor.debug_out("_________________________________________________")
+                pack = b''
+        elif tx_buffer:             # TX #############################################################
+            c = 0
+            while tx_buffer and c < ax25MaxBufferTX:
+                ax.send_kiss(ser, ax.encode_ax25_frame(tx_buffer[0]))
+                tx_buffer = tx_buffer[1:]
+                c += 1
+
+        # TESTING
+        if test_snd_packet != -1 and send_tr:
+            ax.send_kiss(ser, ax.encode_ax25_frame(ax_test_pac[test_snd_packet]))
+            test_snd_packet = -1
+            while send_tr:
+                time.sleep(0.01)
+
+
+##################################################################################################################
+
 def conn():
+
     os.system('clear')
     dest = input('Enter Dest. Call\r\n> ').upper()
     addr_str = dest + ':' + ax.get_call_str(MyCall[0], MyCall[1])
@@ -160,57 +233,12 @@ def conn():
     print("OK ..")
 
 
-def read_kiss():
-    global test_snd_packet, tx_buffer
-    pack = b''
-    ser = serial.Serial(ser_port, ser_baud, timeout=1)
-    while not p_end:
-        b = ser.read()
-        pack += b
-        if b:
-            if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
-                monitor.debug_out("----------------Kiss Data IN ----------------------")
-                try:
-                    out = ax.decode_ax25_frame(pack[2:-1])
-                    # if out[0] in
-                    if out[0] in rx_buffer.keys():
-                        rx_buffer[out[0]].append(out[1])
-                    else:
-                        rx_buffer[out[0]] = [out[1]]
-                    monitor.monitor(out[1])
-                    monitor.debug_out('################ DEC END ##############################')
-
-                except ValueError as e:
-                    monitor.debug_out("-------------- ERROR beim Decoden !! -------------", True)
-                    monitor.debug_out(e, True)
-                    monitor.debug_out(pack, True)
-                    monitor.debug_out('', True)
-                monitor.debug_out("_________________________________________________")
-                pack = b''
-        elif tx_buffer:
-            c = 0
-            while tx_buffer and c < ax25MaxBufferTX:
-                ax.send_kiss(ser, ax.encode_ax25_frame(tx_buffer[0]))
-                tx_buffer = tx_buffer[1:]
-                c += 1
-
-        # TESTING
-        if test_snd_packet != -1 and send_tr:
-            ax.send_kiss(ser, ax.encode_ax25_frame(ax_test_pac[test_snd_packet]))
-            test_snd_packet = -1
-            while send_tr:
-                time.sleep(0.01)
-
-
-##################################################################################################################
-
-
-
-
 i = input("T = Test\n\rEnter = Go\n\r> ")
 if i == 't' or i == 'T':
-    enc = ax.encode_ax25_frame(ax_test_pac[test_snd_packet])
-    print(ax.decode_ax25_frame(bytes.fromhex(enc)))
+    #enc = ax.encode_ax25_frame(ax_test_pac[test_snd_packet])
+    #print(ax.decode_ax25_frame(bytes.fromhex(enc)))
+    print(ax.decode_ax25_frame(b'\xc0\x00\xa8\x8a\xa6\xa8@@\xe0\x9a\x88d\xa6\x82\xae`\x86\x84`\xa6\x82\xae\xe0\x88\xb0`\xa6\x82\xae\xe1?\xc0'[2:-1]))
+    pass
 else:
     os.system('clear')
     try:
