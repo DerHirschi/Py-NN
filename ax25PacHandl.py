@@ -7,13 +7,13 @@ import serial
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 1200
-MyCallStr = 'MD2SAW-8'
+MyCallStr = 'MD2SAW-12'
 
 MyCall = ax.get_ssid(MyCallStr)
 # TEST DATA
 ax_test_pac = [{
-    'call': ('MD2SAW', 8),
-    'dest': ('APRS  ', 0),
+    'call': ('MD2SAW', 8, False),
+    'dest': ('APRS  ', 0, True),
     'via': [('DX0SAW', 0, False)],
     'out': '< TEST fm MD2SAW ( JO52NU ) >',
     'typ': ('UI', True),
@@ -36,9 +36,9 @@ ax_test_pac = [{
     'pid': 6
 },
 {   # 3
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 9, True), ('CB0SAW', 0, False)],
+    'call': ('MD2SAW', 0, False),
+    'dest': ('MD2SAW', 12, True),
+    'via': [('CB0SAW', 0, True), ('DX0SAW', 0, False)],
     'out': '',
     'typ': ('DISC', True),
     'pid': 6
@@ -76,8 +76,8 @@ ax_test_pac = [{
     'pid': 6
 },
 {   # 8
-    'call': ('MD2SAW', 0),
-    'dest': ('DX0SAW', 0),
+    'call': ('MD2SAW', 0, False),
+    'dest': ('DX0SAW', 0, True),
     'via': [('CB0SAW', 0, True)],
     'out': '',
     'typ': ('RR', True, 0),   # Type, P/F, N(R), N(S)
@@ -120,13 +120,12 @@ ax_conn = {
 }
 
 
-def get_conn_item(dest_in=('', 0), via_in=None):
-    if via_in is None:
-        via_in = []
+def get_conn_item():
+
     return {
-        'call': MyCall,
-        'dest': dest_in,
-        'via': via_in,
+        'call': (MyCall[0], MyCall[1], False),
+        'dest': ('', 0, True),
+        'via': [],
         'tx': [],
         'rx': [],
         'stat': 'SABM',
@@ -165,8 +164,8 @@ def handle_rx(inp):
         monitor.debug_out('')
         monitor.debug_out('###### Conn Data In ########')
         monitor.debug_out(conn_id)
-        print(ax_conn[conn_id]['rx'])
-        print(type(ax_conn[conn_id]['rx']))
+        print('Conn incoming... ' + conn_id)
+        print(inp[1])
         tmp = ax_conn[conn_id]['rx']
         tmp.append(inp[1])
         ax_conn[conn_id]['rx'] = tmp
@@ -175,14 +174,12 @@ def handle_rx(inp):
         monitor.debug_out(ax_conn[conn_id])
         monitor.debug_out('#### Conn Data In END ######')
         monitor.debug_out('')
-    elif inp[1]['ctl'][-1] == 0x3f and inp[0].split(':')[0] == MyCallStr:       # Incoming connection
+    elif inp[1]['ctl'][-1] in [0x3f, 0x7f] and inp[0].split(':')[0] == MyCallStr:       # Incoming connection SABM or SABME
         monitor.debug_out('')
         monitor.debug_out('#### Incoming Conn Data In ######')
         monitor.debug_out(conn_id)
-        conn_in(conn_id, dest=ax.get_ssid(conn_id.split(':')[0]), inp=inp[1])
+        conn_in(conn_id, inp=inp[1])   #TODO Ver request
 
-        # ax_conn[addr_str] = get_conn_item(ax.get_ssid(addr_str.split(':')[0]))
-        # ax_conn[addr_str]['tx'] = [get_tx_packet_item(addr_str)]
 
         monitor.debug_out(ax_conn[conn_id])
         monitor.debug_out('#### Incoming Conn Data In END ######')
@@ -193,32 +190,52 @@ def conn():
 
     os.system('clear')
     dest = input('Enter Dest. Call\r\n> ').upper()
-    addr_str = dest + ':' + ax.get_call_str(MyCall[0], MyCall[1])
+    conn_id = dest + ':' + ax.get_call_str(MyCall[0], MyCall[1])
     dest = ax.get_ssid(dest)
     print('')
     via = input('Enter via\r\n> ').upper()
     via = via.split(' ')
     via_list = []
+    if via == ['']:
+        via = []
     for el in via:
-        addr_str += ':' + el
+        conn_id += ':' + el
         via_list.append(ax.get_ssid(el))         # TODO ? ?? Digi Trigger ??
-    print(addr_str)
-    ax_conn[addr_str] = get_conn_item(dest)
-    ax_conn[addr_str]['via'] = via_list
-    print(ax_conn)
-    print("OK ..")
+    print(conn_id)
+    print(via)
+    print(via_list)
+    if conn_id not in ax_conn.keys():
+        ax_conn[conn_id] = get_conn_item()
+        ax_conn[conn_id]['dest'] = (dest[0], dest[1], True)
+        call = ax_conn[conn_id]['call']
+        ax_conn[conn_id]['call'] = (call[0], call[1], False)
+        ax_conn[conn_id]['via'] = via_list
+        tx_pack = get_tx_packet_item(conn_id)
+        tx_pack['typ'] = ('SABM', True)
+        ax_conn[conn_id]['tx'] = [tx_pack]
+        print(ax_conn)
+        print("OK ..")
+    else:
+        print('Connection schon vorhanden !!')
+        print('')
 
 
-def conn_in(id, dest, inp):
-    ax_conn[id] = get_conn_item(ax.get_ssid(id.split(':')[0]))
-    ax_conn[id]['dest'] = dest
-    via = id.split(':')[2:]
+def conn_in(conn_id, inp):
+    print(inp)
+    ax_conn[conn_id] = get_conn_item()
+    dest = inp['FROM']
+    ax_conn[conn_id]['dest'] = (dest[0], dest[1], not dest[2])                   # Vers Command !!!!!!!!!!!!!!! Testen
+    # ax_conn[conn_id]['dest'] = (dest[0], dest[1], False)                   # Vers Command !!!!!!!!!!!!!!! Testen
+    call = ax_conn[conn_id]['call']
+    ax_conn[conn_id]['call'] = (call[0], call[1], not inp['TO'][2])      # Vers Command  !!!!!!!!!!!!!!! Testen
+    # ax_conn[conn_id]['call'] = (call[0], call[1], True)      # Vers Command  !!!!!!!!!!!!!!! Testen
+    via = conn_id.split(':')[2:]
     for el in via:
-        ax_conn[id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
-    ax_conn[id]['rx'] = [inp]
-    tx_pack = get_tx_packet_item(id)
-    tx_pack['typ'] = ('UA', False)
-    ax_conn[id]['tx'] = [tx_pack]
+        ax_conn[conn_id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
+    ax_conn[conn_id]['rx'] = [inp]
+    tx_pack = get_tx_packet_item(conn_id)
+    tx_pack['typ'] = ('UA', inp['ctl'][1])          # P/F Bit uebernehmen  !!!!!!!!!!!!!!! Testen
+    ax_conn[conn_id]['tx'] = [tx_pack]
 
 
 def fetch_txbuffer():
@@ -269,8 +286,10 @@ def read_kiss():
         elif tx_buffer:             # TX #############################################################
             c = 0
             while tx_buffer and c < ax25MaxBufferTX:
-                print(tx_buffer)
-                ax.send_kiss(ser, ax.encode_ax25_frame(tx_buffer[0]))
+                # print(tx_buffer)
+                enc = ax.encode_ax25_frame(tx_buffer[0])
+                ax.send_kiss(ser, enc)
+                print("Out> " + str(ax.decode_ax25_frame(bytes.fromhex(enc))))
                 tx_buffer = tx_buffer[1:]
                 c += 1
 
@@ -303,10 +322,13 @@ else:
                       "P = Print RX-Buffer\n\r"
                       "C = conncet"
                       "\n\r> ")
-            os.system('clear')
             if i.upper() == 'Q':
                 p_end = True
-            elif i.upper() == 'T':
+                break
+            else:
+                os.system('clear')
+
+            if i.upper() == 'T':
                 tx_buffer = ax_test_pac
                 print("OK ..")
             elif i.upper() == 'C':

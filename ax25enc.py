@@ -126,6 +126,8 @@ def decode_ax25_frame(data_in):
             pf = not pf
             if mmm == '001' and mm == '11':
                 ctl_str = "SABM" + bl2str(pf)   # Verbindungsanforderung
+            elif mmm == '011' and mm == '11':
+                ctl_str = "SABME" + bl2str(pf)  # Verbindungsanforderung EAX25 (Modulo 128 C Field)
             elif mmm == '010' and mm == '00':
                 ctl_str = "DISC" + bl2str(pf)   # Verbindungsabbruch
             elif mmm == '000' and mm == '11':
@@ -138,6 +140,7 @@ def decode_ax25_frame(data_in):
             elif mmm == '000' and mm == '00':
                 ctl_str = "UI" + bl2str(pf)     # Unnummerierte Information UI
                 pid = True
+
 
         res.append(pid)
         res.append(ctl_str)
@@ -203,7 +206,7 @@ def decode_ax25_frame(data_in):
             if byte_count == 1:     # Control Byte
                 ret['ctl'] = decode_c_byte(conv_hex(i))
             elif byte_count == 2:   # PID Byte in UI and I Frames
-                if ret['ctl'][-2]:
+                if ret['ctl'][-4]:
                     ret['pid'] = decode_pid_byte(conv_hex(i))
                 else:
                     tmp_str2.append(i)
@@ -223,8 +226,8 @@ def decode_ax25_frame(data_in):
 def encode_ax25_frame(con_data):
     monitor.debug_out('################ ENC ##################################')
     out_str = ''
-    temp = con_data['call'], con_data['dest']
-    call, call_ssid, dest, dest_ssid = temp[0][0], temp[0][1], temp[1][0], temp[1][1]
+    temp = (con_data['call'], con_data['dest'])
+    call, call_ssid, call_c, dest, dest_ssid, dest_c = temp[0][0], temp[0][1], temp[0][2], temp[1][0], temp[1][1], temp[1][2]
     via = con_data['via']
 
     typ = con_data['typ']
@@ -282,7 +285,7 @@ def encode_ax25_frame(con_data):
             elif flag == 'DM':
                 ret = '000' + ret[3] + '11' + ret[-2:]
             elif flag == 'UA':
-                ret = '011' + ret[3] + '11' + ret[-2:]
+                ret = '011' + ret[3] + '00' + ret[-2:]
             elif flag == 'UI':
                 ret = '000' + ret[3] + '00' + ret[-2:]
                 pid_tr, info_f_tr = True, True
@@ -310,10 +313,10 @@ def encode_ax25_frame(con_data):
         return format_hex(ret)
 
     out_str += encode_address_char(dest)
-    out_str += encode_ssid(dest_ssid, True)             # TODO c/h Bit = Version
+    out_str += encode_ssid(dest_ssid, dest_c)             # TODO c/h Bit = Version
     out_str += encode_address_char(call)
     if via:                                             # Set Stop Bit
-        out_str += encode_ssid(call_ssid)
+        out_str += encode_ssid(call_ssid, call_c)
         for i in via:
             out_str += encode_address_char(i[0])
             if i == via[-1]:                           # Set Stop Bit
@@ -322,7 +325,7 @@ def encode_ax25_frame(con_data):
             else:
                 out_str += encode_ssid(i[1], i[2])
     else:
-        out_str += encode_ssid(call_ssid, False, True)  # TODO c/h Bit = Version
+        out_str += encode_ssid(call_ssid, call_c, True)  # TODO c/h Bit = Version
 
     c_byte = encode_c_byte(typ)               # Control Byte
     out_str += c_byte[0]
