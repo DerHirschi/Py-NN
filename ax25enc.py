@@ -64,7 +64,7 @@ def decode_ax25_frame(data_in):
     monitor.debug_out('################ DEC ##################################')
 
     def decode_address_char(in_byte):    # Convert to 7 Bit ASCII
-        bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]
+        bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]      # TODO just Shift the Bit
         he = hex(int(bin_char, 2))
         try:
             return bytes.fromhex(he[2:]).decode().replace(' ', '')
@@ -141,32 +141,52 @@ def decode_ax25_frame(data_in):
                 ctl_str = "UI" + bl2str(pf)     # Unnummerierte Information UI
                 pid = True
 
-
         res.append(pid)
         res.append(ctl_str)
         if monitor.debug:
             res.append(hex(int(in_byte, 16)))       # For Monitor
-        res.append(int(in_byte, 16))
+        # res.append(int(in_byte, 16))
         return res
 
     def decode_pid_byte(in_byte):
         flag = ""
-        bi = bin(int(in_byte, 16))[2:].zfill(8)
+        in_byte = int(in_byte, 16)
+        bi = bin(in_byte)[2:].zfill(8)
         if bi[2:5] == '01':
             flag = 'AX.25 (L3)'
         elif bi[2:5] == '10':
             flag = 'AX.25 (L3)'
-        elif bi == '11001100':
-            flag = 'IP (L3)'
-        elif bi == '11001101':
-            flag = 'ARP (L3)'
-        elif bi == '11001111':
-            flag = 'NET/ROM (L3/4)'
-        elif bi == '11110000':
+        elif in_byte == 0xF0:
             flag = 'Text (NO L3)'
-        elif bi == '11111111':          # Escape. Next Byte has more L3 Infos
+        elif in_byte == 0xCF:
+            flag = 'NET/ROM (L3/4)'
+        elif in_byte == 0xCC:
+            flag = 'IP (L3)'
+        elif in_byte == 0xCD:
+            flag = 'ARPA Address res(L3)'
+        elif in_byte == 0xCE:
+            flag = 'FlexNet'
+        ######################
+        elif in_byte == 0x01:
+            flag = 'X.25 PLP'
+        elif in_byte == 0x06:
+            flag = 'Compressed TCP/IP'
+        elif in_byte == 0x07:
+            flag = 'Uncompressed TCP/IP'
+        elif in_byte == 0x08:
+            flag = 'Segmentation fragment'
+        elif in_byte == 0xC3:
+            flag = 'TEXTNET datagram'
+        elif in_byte == 0xC4:
+            flag = 'Link Quality Protocol'
+        elif in_byte == 0xCA:
+            flag = 'Appletalk'
+        elif in_byte == 0xCB:
+            flag = 'Appletalk ARP'
+        elif in_byte == 0xFF:               # Escape. Next Byte has more L3 Infos
             flag = False
-        return flag, bi
+
+        return flag, hex(in_byte)
 
     tmp_str, tmp_str2, address_str, end = "", bytearray(0), "", False
     address_field_count, byte_count = 0, 0

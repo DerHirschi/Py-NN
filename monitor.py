@@ -38,28 +38,29 @@ def monitor(data):
                 n += 1
 
         if data['pid']:
-            out += '[' + data['pid'][0] + '] '
-        out += '('
+            out += ' [' + data['pid'][0] + ']'
+        out += ' ('
         i = 1
         for e in data['ctl']:
-            if (i < len(data['ctl']) - 2 + db_c) and i > 1:
+            if (i < len(data['ctl']) - 3 + db_c) and i > 1:
                 out += ' '
-            if i < len(data['ctl']) - 2 + db_c:
+            if i < len(data['ctl']) - 3 + db_c:
                 out += str(e)
             i += 1
         if debug:
-            out += ' ' + str(data['ctl'][(-1 - db_c)])
-        out += ') ' + data['ctl'][(-2 - db_c)]
+            out += ' ' + str(data['ctl'][-db_c])
+        out += ') ' + data['ctl'][(-1 - db_c)]
         if data['data'][1]:
             out += ' (len:' + str(data['data'][1]) + ')'
+            out = out.replace('  ', ' ')
             out += '\r\n'
             d = b''
             if b'\r\n' not in data['data']:
                 d = data['data'][0].replace(b'\r', b'\r\n').decode('UTF-8', errors='ignore')
             else:
-                d = data['data'][0].decode(errors='ignore')
+                d = data['data'][0].decode('UTF-8', errors='ignore')
             if d[-2:] == '\r\n':
-                out += d[-2]
+                out += d[:-2]
             else:
                 out += d
 

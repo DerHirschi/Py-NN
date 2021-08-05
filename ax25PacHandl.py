@@ -145,7 +145,10 @@ def get_tx_packet_item(conn_id):
         'via': ax_conn[conn_id]['via'],
         'out': '',
         'typ': ('SABM', True, 0),   # Type, P/F, N(R), N(S)
-        'pid': 6
+        'pid': 6,
+        'nr': 0,
+        'ns': 0,
+        't1': 0.0,
     }
 
 
@@ -174,20 +177,20 @@ def handle_rx(inp):
         monitor.debug_out(ax_conn[conn_id])
         monitor.debug_out('#### Conn Data In END ######')
         monitor.debug_out('')
-    elif inp[1]['ctl'][-1] in [0x3f, 0x7f] and inp[0].split(':')[0] == MyCallStr:       # Incoming connection SABM or SABME
+    elif inp[1]['ctl'][-1] in [0x3f, 0x7f] and inp[0].split(':')[0] in [MyCallStr]:       # Incoming connection SABM or SABME
         monitor.debug_out('')
-        monitor.debug_out('#### Incoming Conn Data In ######')
+        monitor.debug_out('#### Connect Request ..... ######')
         monitor.debug_out(conn_id)
-        conn_in(conn_id, inp=inp[1])   #TODO Ver request
-
+        print('#### Connect Request fm ' + inp[1]['FROM'][0])
+        print(conn_id)
+        conn_in(conn_id, inp=inp[1])                                                    #TODO Ver request
 
         monitor.debug_out(ax_conn[conn_id])
         monitor.debug_out('#### Incoming Conn Data In END ######')
         monitor.debug_out('')
 
 
-def conn():
-
+def conn_out():
     os.system('clear')
     dest = input('Enter Dest. Call\r\n> ').upper()
     conn_id = dest + ':' + ax.get_call_str(MyCall[0], MyCall[1])
@@ -224,21 +227,24 @@ def conn_in(conn_id, inp):
     print(inp)
     ax_conn[conn_id] = get_conn_item()
     dest = inp['FROM']
-    ax_conn[conn_id]['dest'] = (dest[0], dest[1], not dest[2])                   # Vers Command !!!!!!!!!!!!!!! Testen
-    # ax_conn[conn_id]['dest'] = (dest[0], dest[1], False)                   # Vers Command !!!!!!!!!!!!!!! Testen
+    ax_conn[conn_id]['dest'] = (dest[0], dest[1], not dest[2])          # Vers Command !!!!!!!!!!!!!!! Testen
     call = ax_conn[conn_id]['call']
-    ax_conn[conn_id]['call'] = (call[0], call[1], not inp['TO'][2])      # Vers Command  !!!!!!!!!!!!!!! Testen
-    # ax_conn[conn_id]['call'] = (call[0], call[1], True)      # Vers Command  !!!!!!!!!!!!!!! Testen
+    ax_conn[conn_id]['call'] = (call[0], call[1], not inp['TO'][2])     # Vers Command  !!!!!!!!!!!!!!! Testen
     via = conn_id.split(':')[2:]
     for el in via:
         ax_conn[conn_id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
     ax_conn[conn_id]['rx'] = [inp]
     tx_pack = get_tx_packet_item(conn_id)
-    tx_pack['typ'] = ('UA', inp['ctl'][1])          # P/F Bit uebernehmen  !!!!!!!!!!!!!!! Testen
+    tx_pack['typ'] = ('UA', inp['ctl'][1])                              # P/F Bit uebernehmen  !!!!!!!!!!!!!!! Testen
+    ax_conn[conn_id]['tx'] = [tx_pack]
+    set_t1(conn_id)
+
+    tx_pack['typ'] = ('I', ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'], )
+    tx_pack['out'] = '############# TEST ###############'
     ax_conn[conn_id]['tx'] = [tx_pack]
 
 
-def fetch_txbuffer():
+def put_txbuffer():
     for k in ax_conn.keys():
         tmp = ax_conn[k]['tx']
         for el in tmp:
@@ -255,11 +261,6 @@ def read_kiss():
     while not p_end:
         b = ser.read()
         pack += b
-        fetch_txbuffer()
-
-        if tx_buffer:
-            monitor.debug_out(ax_conn)
-            monitor.debug_out(tx_buffer)
         if b:           # RX ###################################################################################
             if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
                 monitor.debug_out("----------------Kiss Data IN ----------------------")
@@ -283,10 +284,13 @@ def read_kiss():
                     monitor.debug_out('', True)
                 monitor.debug_out("_________________________________________________")
                 pack = b''
-        elif tx_buffer:             # TX #############################################################
+
+        put_txbuffer()          # TX #############################################################
+        if tx_buffer:
+            monitor.debug_out(ax_conn)
+            monitor.debug_out(tx_buffer)
             c = 0
             while tx_buffer and c < ax25MaxBufferTX:
-                # print(tx_buffer)
                 enc = ax.encode_ax25_frame(tx_buffer[0])
                 ax.send_kiss(ser, enc)
                 print("Out> " + str(ax.decode_ax25_frame(bytes.fromhex(enc))))
@@ -332,7 +336,7 @@ else:
                 tx_buffer = ax_test_pac
                 print("OK ..")
             elif i.upper() == 'C':
-                conn()
+                conn_out()
             elif i.upper() == 'P':
                 for k in rx_buffer.keys():
                     print('')
