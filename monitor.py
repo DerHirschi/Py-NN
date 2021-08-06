@@ -40,16 +40,20 @@ def monitor(data):
         if data['pid']:
             out += ' [' + data['pid'][0] + ']'
         out += ' ('
-        i = 1
-        for e in data['ctl']:
-            if (i < len(data['ctl']) - 3 + db_c) and i > 1:
-                out += ' '
-            if i < len(data['ctl']) - 3 + db_c:
-                out += str(e)
-            i += 1
+
+        out += data['ctl']['type']
+        out += ' ' + str(data['ctl']['pf'])
+        if data['ctl']['nr'] != -1:
+            out += ' ' + str(data['ctl']['nr'])
+        if data['ctl']['ns'] != -1:
+            out += ' ' + str(data['ctl']['ns'])
+        if data['ctl']['cmd']:
+            out += ' ' + 'cmd'
+        else:
+            out += ' ' + 'res'
         if debug:
-            out += ' ' + str(data['ctl'][-db_c])
-        out += ') ' + data['ctl'][(-1 - db_c)]
+            out += ' ' + str(data['ctl']['hex'])
+        out += ') ' + data['ctl']['ctl_str']
         if data['data'][1]:
             out += ' (len:' + str(data['data'][1]) + ')'
             out = out.replace('  ', ' ')

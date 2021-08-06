@@ -2,10 +2,6 @@ import monitor
 debug = monitor.debug
 
 
-def bin2bl(inp):
-    return bool(int(inp))
-
-
 def bytearray2hexstr(inp):
     return ''.join('{:02x}'.format(x) for x in inp)
 
@@ -73,80 +69,96 @@ def decode_ax25_frame(data_in):
 
     def decode_ssid(in_byte):       # Address > CRRSSID1    Digi > HRRSSID1
         bi = bin(int(in_byte, 16))[2:].zfill(8)
-        s_bit = bin2bl(bi[7])       # Stop Bit      Bit 8
-        c_bit = bin2bl(bi[0])       # C bzw H Bit   Bit 1
+        s_bit = bool(int(bi[7], 2)) # Stop Bit      Bit 8
+        c_bit = bool(int(bi[0], 2)) # C bzw H Bit   Bit 1
         ssid = int(bi[3:7], 2)      # SSID          Bit 4 - 7
         r_bits = bi[1:3]            # Bit 2 - 3 not used. Free to use for any application .?..
         return s_bit, c_bit, ssid, r_bits
 
     def decode_c_byte(in_byte):
         monitor.debug_out('C-Byte HEX: ' + str(hex(int(in_byte, 16))))
+        ctl = {
+            'ctl_str': '',          # P/F Bit
+            'type': '',             # Control Field Type ( U, I, S )
+            'flag': '',             # Control Field Flag ( RR, REJ, SABM ... )
+            'pf': False,            # P/F Bit
+            'cmd': False,           # Command or Report ( C Bits in Address Field )
+            'nr': -1,               # N(R)
+            'ns': -1,               # N(S)
+            'pid': False,           # Next Byte PID Field
+            'hex': 0x00             # Input as Hex ( Debugging )
+        }
 
         def bl2str(inp):
             if inp:
-                return '-'
-            else:
                 return '+'
+            else:
+                return '-'
 
-        res, ctl_str, pid = [], '', False
+        ctl_str = ''
         bi = bin(int(in_byte, 16))[2:].zfill(8)
-        pf = bin2bl(bi[3])                                                          # P/F
-        if not bin2bl(bi[-1]):                              # I-Block   Informationsübertragung
-            res.append("I")
+        pf = bool(int(bi[3], 2))                                                          # P/F
+        ctl['pf'] = pf
+        if bi[-1] == '0':                               # I-Block   Informationsübertragung
             nr = int(bi[:3], 2)
             ns = int(bi[4:7], 2)
-            res.append(pf)                                                       # P
-            res.append(nr)                                                       # N(R)
-            res.append(ns)                                                       # N(S)
-            ctl_str = "I" + str(nr) + str(ns) + bl2str(pf)
-            pid = True
-        elif not bin2bl(bi[-2]) and bin2bl(bi[-1]):         # S-Block
-            res.append("S")
+            ctl_str = 'I' + str(nr) + str(ns) + bl2str(pf)
+            ctl['type'] = 'I'
+            ctl['nr'] = nr
+            ctl['ns'] = ns
+            ctl['pid'] = True
+            ctl['ctl_str'] = ctl_str
+            ctl['flag'] = 'I'
+        elif bi[-2:] == '01':                           # S-Block
             nr = int(bi[:3], 2)
             ss_bits = bi[4:6]
-            res.append(pf)                                                       # P/F
-            res.append(nr)                                                       # N(R)
-            # res[1].append(ss_bits)                                                  # S S Bits
             if ss_bits == '00':                                         # Empfangsbereit RR
-                ctl_str = "RR" + str(nr) + bl2str(pf)                               # P/F Bit add +/-
+                ctl_str = 'RR' + str(nr) + bl2str(pf)                   # P/F Bit add +/-
+                ctl['flag'] = 'RR'
             elif ss_bits == '01':                                       # Nicht empfangsbereit RNRR
-                ctl_str = "RNRR" + bl2str(pf)                                       # P/F Bit add +/-
+                ctl_str = 'RNRR' + bl2str(pf)                           # P/F Bit add +/-
+                ctl['flag'] = 'RNRR'
             elif ss_bits == '10':                                       # Wiederholungsaufforderung REJ
-                ctl_str = "REJ" + str(nr) + bl2str(pf)                              # P/F Bit add +/-
+                ctl_str = 'REJ' + str(nr) + bl2str(pf)                  # P/F Bit add +/-
+                ctl['flag'] = 'REJ'
             else:
-                ctl_str = "S-UNKNOW"
+                ctl_str = 'S-UNKNOW'
+                ctl['flag'] = 'S-UNKNOW'
+            ctl['type'] = 'S'
+            ctl['nr'] = nr
+            ctl['ctl_str'] = ctl_str
 
-        elif bin2bl(bi[-2]) and bin2bl(bi[-1]):             # U-Block
-            res.append("U")
+        elif bi[-2:] == '11':                           # U-Block
+            ctl['type'] = 'U'
             mmm = bi[0:3]
             mm = bi[4:6]
-            # res[1].append(mmm)                                                      # M M M
-            res.append(pf)                                                       # P/F
-            # res[1].append(mm)                                                       # M M
-            pf = not pf
             if mmm == '001' and mm == '11':
                 ctl_str = "SABM" + bl2str(pf)   # Verbindungsanforderung
+                ctl['flag'] = 'SABM'
             elif mmm == '011' and mm == '11':
                 ctl_str = "SABME" + bl2str(pf)  # Verbindungsanforderung EAX25 (Modulo 128 C Field)
+                ctl['flag'] = 'SABME'
             elif mmm == '010' and mm == '00':
                 ctl_str = "DISC" + bl2str(pf)   # Verbindungsabbruch
+                ctl['flag'] = 'DISC'
             elif mmm == '000' and mm == '11':
                 ctl_str = "DM" + bl2str(pf)     # Verbindungsrückweisung
+                ctl['flag'] = 'DM'
             elif mmm == '011' and mm == '00':
                 ctl_str = "UA" + bl2str(pf)     # Unnummerierte Bestätigung
+                ctl['flag'] = 'UA'
             elif mmm == '100' and mm == '01':
                 ctl_str = "FRMR" + bl2str(pf)   # Rückweisung eines Blocks
-                pid = True
+                ctl['flag'] = 'FRMR'
+                ctl['pid'] = True
             elif mmm == '000' and mm == '00':
                 ctl_str = "UI" + bl2str(pf)     # Unnummerierte Information UI
-                pid = True
+                ctl['flag'] = 'UI'
+                ctl['pid'] = True
+            ctl['ctl_str'] = ctl_str
 
-        res.append(pid)
-        res.append(ctl_str)
-        if monitor.debug:
-            res.append(hex(int(in_byte, 16)))       # For Monitor
-        # res.append(int(in_byte, 16))
-        return res
+        ctl['hex'] = int(in_byte, 16)
+        return ctl
 
     def decode_pid_byte(in_byte):
         flag = ""
@@ -226,7 +238,7 @@ def decode_ax25_frame(data_in):
             if byte_count == 1:     # Control Byte
                 ret['ctl'] = decode_c_byte(conv_hex(i))
             elif byte_count == 2:   # PID Byte in UI and I Frames
-                if ret['ctl'][-4]:
+                if ret['ctl']['pid']:
                     ret['pid'] = decode_pid_byte(conv_hex(i))
                 else:
                     tmp_str2.append(i)

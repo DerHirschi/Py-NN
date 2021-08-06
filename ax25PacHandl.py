@@ -177,7 +177,7 @@ def handle_rx(inp):
         monitor.debug_out(ax_conn[conn_id])
         monitor.debug_out('#### Conn Data In END ######')
         monitor.debug_out('')
-    elif inp[1]['ctl'][-1] in [0x3f, 0x7f] and inp[0].split(':')[0] in [MyCallStr]:       # Incoming connection SABM or SABME
+    elif inp[1]['ctl']['hex'] in [0x3f, 0x7f] and inp[0].split(':')[0] in [MyCallStr]:       # Incoming connection SABM or SABME
         monitor.debug_out('')
         monitor.debug_out('#### Connect Request ..... ######')
         monitor.debug_out(conn_id)
@@ -235,13 +235,14 @@ def conn_in(conn_id, inp):
         ax_conn[conn_id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
     ax_conn[conn_id]['rx'] = [inp]
     tx_pack = get_tx_packet_item(conn_id)
-    tx_pack['typ'] = ('UA', inp['ctl'][1])                              # P/F Bit uebernehmen  !!!!!!!!!!!!!!! Testen
-    ax_conn[conn_id]['tx'] = [tx_pack]
+    tx_pack['typ'] = ('UA', inp['ctl']['pf'])                           # P/F Bit uebernehmen  !!!!!!!!!!!!!!! Testen
+    # ax_conn[conn_id]['tx'] = [tx_pack]
     set_t1(conn_id)
 
-    tx_pack['typ'] = ('I', ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'], )
-    tx_pack['out'] = '############# TEST ###############'
-    ax_conn[conn_id]['tx'] = [tx_pack]
+    tx_pack2 = tx_pack
+    tx_pack2['typ'] = ('I', True,  ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'], )
+    tx_pack2['out'] = '############# TEST ###############'
+    ax_conn[conn_id]['tx'] = [tx_pack, tx_pack2]
 
 
 def put_txbuffer():
