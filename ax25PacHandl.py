@@ -7,72 +7,36 @@ import serial
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 1200
-MyCallStr1 = 'MD2SAW-11'            # Call for outgoing connects
-MyCallStr2 = ['MD2SAW-8', 'MD2SAW-9', 'MD2SAW-10']          # Calls for requests
+MyCallStr1 = 'MD3SAW-11'            # Call for outgoing connects
+MyCallStr2 = ['MD3SAW-8', 'MD3SAW-9', 'MD3SAW-10']          # Calls for requests
 
 MyCall = ax.get_ssid(MyCallStr1)
 Calls = [MyCallStr1] + MyCallStr2
 # TEST DATA
 ax_test_pac = [{
-    'call': ('MD2SAW', 8),
-    'dest': ('APRS', 0),
-    'via': [('DX0SAW', 0, False)],
+    'call': ['MD2SAW', 8],
+    'dest': ['APRS', 0],
+    'via': [['DX0SAW', 0, False]],
     'out': '< TEST fm MD2SAW ( JO52NU ) >',
-    'typ': ('UI', True),
+    'typ': ['UI', True],
     'cmd': True,
     'pid': 6
 },
 {   # 1
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, True)],
+    'call': ['MD2SAW', 8],
+    'dest': ['DX0SAW', 0],
+    'via': [['CB0SAW', 0, True]],
     'out': '',
-    'typ': ('DISC', True),
+    'typ': ['DISC', True],
     'cmd': True,
     'pid': 6
 },
 {   # 2
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 9, True), ('CB0SAW', 0, False)],
+    'call': ['MD2SAW', 8],
+    'dest': ['DX0SAW', 0],
+    'via': [['CB0SAW', 9, True], ['CB0SAW', 0, False]],
     'out': '',
-    'typ': ('SABM', True),
-    'cmd': True,
-    'pid': 6
-},
-{   # 3
-    'call': ('MD2SAW', 0, False),
-    'dest': ('MD2SAW', 12, True),
-    'via': [('CB0SAW', 0, True), ('DX0SAW', 0, False)],
-    'out': '',
-    'typ': ('DISC', True),
-    'cmd': True,
-    'pid': 6
-},
-{   # 4
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, False), ('DNX527', 0, False)],
-    'out': '',
-    'typ': ('SABM', True),
-    'cmd': True,
-    'pid': 6
-},
-{   # 5
-    'call': ('MD2SAW', 8),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, False), ('DNX527', 0, False)],
-    'out': '',
-    'typ': ('DISC', True),
-    'cmd': True,
-    'pid': 6
-},
-{   # 6
-    'call': ('DNX527', 0),
-    'dest': ('DX0SAW', 0),
-    'via': [],
-    'out': '',
-    'typ': ('SABM', True),
+    'typ': ['SABM', True],
     'cmd': True,
     'pid': 6
 }]
@@ -116,8 +80,8 @@ ax_conn = {
 def get_conn_item():
 
     return {
-        'call': (MyCall[0], MyCall[1]),
-        'dest': ('', 0),
+        'call': [MyCall[0], MyCall[1]],
+        'dest': ['', 0],
         'via': [],
         'tx': [],
         'rx': [],
@@ -129,22 +93,39 @@ def get_conn_item():
     }
 
 
-def get_tx_packet_item(inp):
-    via = []
-    for el in inp['via']:
-        via.append((el[0], el[1], False))
-    return {
-        'call': inp['TO'],
-        'dest': inp['FROM'],
-        'via': via,
-        'out': '',
-        'typ': ('SABM', True, 0),   # Type, P/F, N(R), N(S)
-        'cmd': False,
-        'pid': 6,
-        'nr': 0,
-        'ns': 0,
-        't1': 0.0,
-    }
+def get_tx_packet_item(inp=None, conn_id=None):
+    if inp:
+        print('INP !!!! > ' + str(inp))
+        via = []
+        tm = inp['via']
+        tm.reverse()
+        for el in tm:
+            via.append([el[0], el[1], False])
+        return {
+            'call': inp['TO'],
+            'dest': inp['FROM'],
+            'via': via,
+            'out': '',
+            'typ': ['SABM', True, 0],   # Type, P/F, N(R), N(S)
+            'cmd': False,
+            'pid': 6,
+            'nr': 0,
+            'ns': 0,
+            't1': 0.0,
+        }
+    elif conn_id:
+        return {
+            'call': ax_conn[conn_id]['call'],
+            'dest': ax_conn[conn_id]['dest'],
+            'via': ax_conn[conn_id]['via'],
+            'out': '',
+            'typ': ['SABM', True, 0],  # Type, P/F, N(R), N(S)
+            'cmd': False,
+            'pid': 6,
+            'nr': 0,
+            'ns': 0,
+            't1': 0.0,
+        }
 
 
 def set_t1(conn_key):
@@ -189,13 +170,14 @@ def handle_rx(inp):
         else:
             SABM_RX(conn_id, inp=inp[1])  # Handle connect Request
     # Incoming DISC
+
     if inp[1]['ctl']['hex'] == 0x53 and inp[0].split(':')[0] in Calls:
         # Check all Digi Bits are set
         if inp[1]['via'] and all(not el[2] for el in inp[1]['via']):
             monitor.debug_out('###### Disco REQ incoming. not Digipeated yet !!########')
             monitor.debug_out('')
         else:
-            DISC_RX(conn_id, inp=inp[1])        # Handle connect Request
+            DISC_RX(conn_id, inp=inp[1])        # Handle DISC Request
 
 
 def DISC_RX(conn_id, inp):
@@ -227,7 +209,7 @@ def SABM_TX():
         via = []
     for el in via:
         conn_id += ':' + el
-        via_list.append(ax.get_ssid(el))         # TODO ? ?? Digi Trigger ??
+        via_list.append(ax.get_ssid(el).append(False))      # Digi Trigger ( H BIT )
     print(conn_id)
     print(via)
     print(via_list)
@@ -237,8 +219,8 @@ def SABM_TX():
         call = ax_conn[conn_id]['call']
         ax_conn[conn_id]['call'] = (call[0], call[1])
         ax_conn[conn_id]['via'] = via_list
-        tx_pack = get_tx_packet_item(conn_id)   # TODO
-        tx_pack['typ'] = ('SABM', True)
+        tx_pack = get_tx_packet_item(conn_id=conn_id)
+        tx_pack['typ'] = ['SABM', True]
         tx_pack['cmd'] = True
         ax_conn[conn_id]['tx'] = [tx_pack]
         print(ax_conn)
@@ -256,28 +238,29 @@ def SABM_RX(conn_id, inp):
     print(conn_id)
     dest = inp['FROM']
     call = inp['TO']
-    # Set conn Data
-    ax_conn[conn_id] = get_conn_item()
-    ax_conn[conn_id]['dest'] = (dest[0], dest[1])
-    ax_conn[conn_id]['call'] = (call[0], call[1])
-    # via = conn_id.split(':')[2:]
-    # for el in via:
-    #     ax_conn[conn_id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
-    for el in inp['via']:
-        ax_conn[conn_id]['via'].append((el[0], el[1], False))
-    # ax_conn[conn_id]['via'] = inp['via']
-    ax_conn[conn_id]['rx'] = [inp]
-    # Set conn Data End
+    # Set NEW conn Data
+    if conn_id not in ax_conn:
+        ax_conn[conn_id] = get_conn_item()
+        ax_conn[conn_id]['dest'] = [dest[0], dest[1]]
+        ax_conn[conn_id]['call'] = [call[0], call[1]]
+        ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'] = 0, 0
+        for el in inp['via']:
+            ax_conn[conn_id]['via'].append([el[0], el[1], False])
+        ax_conn[conn_id]['via'].reverse()
+        ax_conn[conn_id]['rx'] = [inp]
+    # Set NEW conn Data End
 
     # Answering Conn Req.
-    tx_pack = get_tx_packet_item(inp)
-    tx_pack['typ'] = ('UA', inp['ctl']['pf'])
+    tx_pack = get_tx_packet_item(inp=inp)
+    # print('1 > ' + str(tx_pack))
+    tx_pack['typ'] = ['UA', inp['ctl']['pf']]
     tx_pack['cmd'] = False
     ax_conn[conn_id]['tx'].append(tx_pack)
 
     # C-Text
-    tx_pack2 = get_tx_packet_item(inp)
-    tx_pack2['typ'] = ('I', True,  ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'], )
+    tx_pack2 = get_tx_packet_item(conn_id=conn_id)
+    # print('2 > ' + str(tx_pack2))
+    tx_pack2['typ'] = ['I', False,  ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns']]
     tx_pack2['cmd'] = True
     tx_pack2['out'] = '############# TEST ###############'
     ax_conn[conn_id]['tx'].append(tx_pack2)
@@ -333,7 +316,7 @@ def read_kiss():
         put_txbuffer()          # TX #############################################################
         if tx_buffer:
             monitor.debug_out(ax_conn)
-            monitor.debug_out(tx_buffer)
+            # print('TX-BUFFER > ' + str(tx_buffer))
             c = 0
             while tx_buffer and c < ax25MaxBufferTX:
                 enc = ax.encode_ax25_frame(tx_buffer[0])

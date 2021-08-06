@@ -16,9 +16,9 @@ def conv_hex(inp):
 
 def get_ssid(inp):
     if inp.find('-') != -1:
-        return inp[:inp.find('-')].upper(), int(inp[inp.find('-') + 1:].upper())
+        return [inp[:inp.find('-')].upper(), int(inp[inp.find('-') + 1:].upper())]
     else:
-        return inp, 0
+        return [inp, 0]
 
 
 def get_call_str(call, ssid=0):
@@ -229,7 +229,7 @@ def decode_ax25_frame(data_in):
                 if address_field_count > 2:                 # DIGI
                     # keys.append('DIGI' + str(address_field_count - 2))
                     '''CALL, int(SSID), H-BIT, R-BITs'''
-                    via.append((tmp_str, tmp[2], tmp[1], tmp[3]))
+                    via.append([tmp_str, tmp[2], tmp[1], tmp[3]])
                     if tmp[1]:                              # H Bit
                         address_str += '*'
                 else:
@@ -295,7 +295,7 @@ def encode_ax25_frame(con_data):
             out += conv_hex(i << 1)
         return out
 
-    def encode_ssid(ssid_in=0, c_h_bit=False, stop_bit= False):     # TODO C Bit Vers command
+    def encode_ssid(ssid_in=0, c_h_bit=False, stop_bit=False):
         ssid_in = bin(ssid_in << 1)[2:].zfill(8)
         if c_h_bit:
             ssid_in = '1' + ssid_in[1:]               # Set C or H Bit. H Bit if msg was geDigit
@@ -371,13 +371,16 @@ def encode_ax25_frame(con_data):
     out_str += encode_address_char(call)
     if via:                                             # Set Stop Bit
         out_str += encode_ssid(call_ssid, call_c)
+        c = 1
         for i in via:
             out_str += encode_address_char(i[0])
-            if i == via[-1]:                           # Set Stop Bit
+            if c == len(via):                           # Set Stop Bit
                 out_str += encode_ssid(i[1], i[2], True)
-                monitor.debug_out('via Stop Bit set.. ' + i[0])
+                # monitor.debug_out('via Stop Bit set.. ' + i[0])
             else:
                 out_str += encode_ssid(i[1], i[2])
+            c += 1
+
     else:
         out_str += encode_ssid(call_ssid, call_c, True)
 
