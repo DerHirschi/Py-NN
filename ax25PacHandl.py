@@ -7,24 +7,28 @@ import serial
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 1200
-MyCallStr = 'MD2SAW-11'
+MyCallStr1 = 'MD2SAW-11'            # Call for outgoing connects
+MyCallStr2 = ['MD2SAW-8', 'MD2SAW-9', 'MD2SAW-10']          # Calls for requests
 
-MyCall = ax.get_ssid(MyCallStr)
+MyCall = ax.get_ssid(MyCallStr1)
+Calls = [MyCallStr1] + MyCallStr2
 # TEST DATA
 ax_test_pac = [{
-    'call': ('MD2SAW', 8, False),
-    'dest': ('APRS  ', 0, True),
+    'call': ('MD2SAW', 8),
+    'dest': ('APRS', 0),
     'via': [('DX0SAW', 0, False)],
     'out': '< TEST fm MD2SAW ( JO52NU ) >',
     'typ': ('UI', True),
+    'cmd': True,
     'pid': 6
 },
 {   # 1
     'call': ('MD2SAW', 8),
     'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, False)],
+    'via': [('CB0SAW', 0, True)],
     'out': '',
-    'typ': ('SABM', True),
+    'typ': ('DISC', True),
+    'cmd': True,
     'pid': 6
 },
 {   # 2
@@ -33,6 +37,7 @@ ax_test_pac = [{
     'via': [('CB0SAW', 9, True), ('CB0SAW', 0, False)],
     'out': '',
     'typ': ('SABM', True),
+    'cmd': True,
     'pid': 6
 },
 {   # 3
@@ -41,6 +46,7 @@ ax_test_pac = [{
     'via': [('CB0SAW', 0, True), ('DX0SAW', 0, False)],
     'out': '',
     'typ': ('DISC', True),
+    'cmd': True,
     'pid': 6
 },
 {   # 4
@@ -49,6 +55,7 @@ ax_test_pac = [{
     'via': [('CB0SAW', 0, False), ('DNX527', 0, False)],
     'out': '',
     'typ': ('SABM', True),
+    'cmd': True,
     'pid': 6
 },
 {   # 5
@@ -57,6 +64,7 @@ ax_test_pac = [{
     'via': [('CB0SAW', 0, False), ('DNX527', 0, False)],
     'out': '',
     'typ': ('DISC', True),
+    'cmd': True,
     'pid': 6
 },
 {   # 6
@@ -65,22 +73,7 @@ ax_test_pac = [{
     'via': [],
     'out': '',
     'typ': ('SABM', True),
-    'pid': 6
-},
-{   # 7
-    'call': ('MD2SAW', 0),
-    'dest': ('DX0SAW', 0),
-    'via': [('CB0SAW', 0, True)],
-    'out': 'TEST',
-    'typ': ('I', True, 5, 4),   # Type, P/F, N(R), N(S)
-    'pid': 6
-},
-{   # 8
-    'call': ('MD2SAW', 0, False),
-    'dest': ('DX0SAW', 0, True),
-    'via': [('CB0SAW', 0, True)],
-    'out': '',
-    'typ': ('RR', True, 0),   # Type, P/F, N(R), N(S)
+    'cmd': True,
     'pid': 6
 }]
 '''
@@ -123,8 +116,8 @@ ax_conn = {
 def get_conn_item():
 
     return {
-        'call': (MyCall[0], MyCall[1], False),
-        'dest': ('', 0, True),
+        'call': (MyCall[0], MyCall[1]),
+        'dest': ('', 0),
         'via': [],
         'tx': [],
         'rx': [],
@@ -136,11 +129,14 @@ def get_conn_item():
     }
 
 
-def get_tx_packet_item(conn_id):
+def get_tx_packet_item(inp):
+    via = []
+    for el in inp['via']:
+        via.append((el[0], el[1], False))
     return {
-        'call': ax_conn[conn_id]['call'],
-        'dest': ax_conn[conn_id]['dest'],
-        'via': ax_conn[conn_id]['via'],
+        'call': inp['TO'],
+        'dest': inp['FROM'],
+        'via': via,
         'out': '',
         'typ': ('SABM', True, 0),   # Type, P/F, N(R), N(S)
         'cmd': False,
@@ -162,35 +158,63 @@ def set_t1(conn_key):
 def handle_rx(inp):
     monitor.monitor(inp[1])
     conn_id = ax.reverse_addr_str(inp[0])
+
+    # Connected Stations
     if conn_id in ax_conn.keys():
-        monitor.debug_out('')
-        monitor.debug_out('###### Conn Data In ########')
-        monitor.debug_out(conn_id)
-        print('Conn incoming... ' + conn_id)
-        print('IN> ' + str(inp[1]))
-        # ??????????? Alle Pakete speichern ??
-        tmp = ax_conn[conn_id]['rx']
-        tmp.append(inp[1])
-        ax_conn[conn_id]['rx'] = tmp
-        ax_conn[conn_id]['t1'], ax_conn[conn_id]['ret'] = 0, 0
+        # Check all Digi Bits are set
+        if inp[1]['via'] and all(not el[2] for el in inp[1]['via']):
+            monitor.debug_out('###### Conn Data In not Digipeated yet !!########')
+            monitor.debug_out('')
+        else:
+            monitor.debug_out('')
+            monitor.debug_out('###### Conn Data In ########')
+            monitor.debug_out(conn_id)
+            print('Conn incoming... ' + conn_id)
+            print('IN> ' + str(inp[1]))
+            # ??????????? Alle Pakete speichern ??
+            ax_conn[conn_id]['rx'].append(inp[1])
 
-        monitor.debug_out(ax_conn[conn_id])
-        monitor.debug_out('#### Conn Data In END ######')
-        monitor.debug_out('')
-    elif inp[1]['ctl']['hex'] in [0x3f, 0x7f] and inp[0].split(':')[0] in [MyCallStr]:       # Incoming connection SABM or SABME
-        monitor.debug_out('')
-        monitor.debug_out('#### Connect Request ..... ######')
-        monitor.debug_out(conn_id)
-        print('#### Connect Request fm ' + inp[1]['FROM'][0])
-        print(conn_id)
-        conn_in(conn_id, inp=inp[1])
+            ax_conn[conn_id]['t1'], ax_conn[conn_id]['ret'] = 0, 0
 
-        monitor.debug_out(ax_conn[conn_id])
-        monitor.debug_out('#### Incoming Conn Data In END ######')
-        monitor.debug_out('')
+            monitor.debug_out(ax_conn[conn_id])
+            monitor.debug_out('#### Conn Data In END ######')
+            monitor.debug_out('')
+
+    # Incoming connection SABM or SABME
+    if inp[1]['ctl']['hex'] in [0x3f, 0x7f] and inp[0].split(':')[0] in Calls:
+        # Check all Digi Bits are set
+        if inp[1]['via'] and all(not el[2] for el in inp[1]['via']):
+            monitor.debug_out('###### Conn REQ incoming. not Digipeated yet !!########')
+            monitor.debug_out('')
+        else:
+            SABM_RX(conn_id, inp=inp[1])  # Handle connect Request
+    # Incoming DISC
+    if inp[1]['ctl']['hex'] == 0x53 and inp[0].split(':')[0] in Calls:
+        # Check all Digi Bits are set
+        if inp[1]['via'] and all(not el[2] for el in inp[1]['via']):
+            monitor.debug_out('###### Disco REQ incoming. not Digipeated yet !!########')
+            monitor.debug_out('')
+        else:
+            DISC_RX(conn_id, inp=inp[1])        # Handle connect Request
 
 
-def conn_out():
+def DISC_RX(conn_id, inp):
+    monitor.debug_out('')
+    monitor.debug_out('#### DISCO Request ..... ######')
+    monitor.debug_out(conn_id)
+    print('#### DISCO Request fm ' + inp['FROM'][0])
+    print(conn_id)
+
+    # Answering DISC
+    tx_pack = get_tx_packet_item(inp)
+    tx_pack['typ'] = ('DM', inp['ctl']['pf'])
+    tx_pack['cmd'] = False
+    tx_buffer.append(tx_pack)
+    if conn_id in ax_conn.keys():
+        del ax_conn[conn_id]
+
+
+def SABM_TX():
     os.system('clear')
     dest = input('Enter Dest. Call\r\n> ').upper()
     conn_id = dest + ':' + ax.get_call_str(MyCall[0], MyCall[1])
@@ -209,42 +233,60 @@ def conn_out():
     print(via_list)
     if conn_id not in ax_conn.keys():
         ax_conn[conn_id] = get_conn_item()
-        ax_conn[conn_id]['dest'] = (dest[0], dest[1], True)
+        ax_conn[conn_id]['dest'] = (dest[0], dest[1])
         call = ax_conn[conn_id]['call']
-        ax_conn[conn_id]['call'] = (call[0], call[1], False)
+        ax_conn[conn_id]['call'] = (call[0], call[1])
         ax_conn[conn_id]['via'] = via_list
-        tx_pack = get_tx_packet_item(conn_id)
+        tx_pack = get_tx_packet_item(conn_id)   # TODO
         tx_pack['typ'] = ('SABM', True)
         tx_pack['cmd'] = True
         ax_conn[conn_id]['tx'] = [tx_pack]
         print(ax_conn)
         print("OK ..")
     else:
-        print('Connection schon vorhanden !!')
+        print('Busy !!')
         print('')
 
 
-def conn_in(conn_id, inp):
-    # print(inp)
-    ax_conn[conn_id] = get_conn_item()
+def SABM_RX(conn_id, inp):
+    monitor.debug_out('')
+    monitor.debug_out('#### Connect Request ..... ######')
+    monitor.debug_out(conn_id)
+    print('#### Connect Request fm ' + inp['FROM'][0])
+    print(conn_id)
     dest = inp['FROM']
+    call = inp['TO']
+    # Set conn Data
+    ax_conn[conn_id] = get_conn_item()
     ax_conn[conn_id]['dest'] = (dest[0], dest[1])
-    call = ax_conn[conn_id]['call']
     ax_conn[conn_id]['call'] = (call[0], call[1])
-    via = conn_id.split(':')[2:]
-    for el in via:
-        ax_conn[conn_id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
+    # via = conn_id.split(':')[2:]
+    # for el in via:
+    #     ax_conn[conn_id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
+    for el in inp['via']:
+        ax_conn[conn_id]['via'].append((el[0], el[1], False))
+    # ax_conn[conn_id]['via'] = inp['via']
     ax_conn[conn_id]['rx'] = [inp]
-    tx_pack = get_tx_packet_item(conn_id)
+    # Set conn Data End
+
+    # Answering Conn Req.
+    tx_pack = get_tx_packet_item(inp)
     tx_pack['typ'] = ('UA', inp['ctl']['pf'])
     tx_pack['cmd'] = False
+    ax_conn[conn_id]['tx'].append(tx_pack)
 
-    tx_pack2 = get_tx_packet_item(conn_id)
+    # C-Text
+    tx_pack2 = get_tx_packet_item(inp)
     tx_pack2['typ'] = ('I', True,  ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'], )
     tx_pack2['cmd'] = True
     tx_pack2['out'] = '############# TEST ###############'
-    ax_conn[conn_id]['tx'] = [tx_pack, tx_pack2]
+    ax_conn[conn_id]['tx'].append(tx_pack2)
+
     set_t1(conn_id)
+
+    monitor.debug_out(ax_conn[conn_id])
+    monitor.debug_out('#### Incoming Conn Data In END ######')
+    monitor.debug_out('')
 
 
 def put_txbuffer():
@@ -339,7 +381,7 @@ else:
                 tx_buffer = ax_test_pac
                 print("OK ..")
             elif i.upper() == 'C':
-                conn_out()
+                SABM_TX()
             elif i.upper() == 'P':
                 for k in rx_buffer.keys():
                     print('')

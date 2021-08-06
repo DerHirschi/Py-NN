@@ -51,6 +51,7 @@ def decode_ax25_frame(data_in):
     ret = {
         "TO": '',
         "FROM": '',
+        "via": [],
         "ctl": [],
         "pid": ()
         # "DIGI1..8"
@@ -206,6 +207,7 @@ def decode_ax25_frame(data_in):
     tmp_str, tmp_str2, address_str, end = "", bytearray(0), "", False
     address_field_count, byte_count = 0, 0
     keys = ['TO', 'FROM']
+    via = []
     monitor.debug_out('Dec IN: ' + str(data_in))
     for i in data_in:
         byte_count += 1
@@ -225,17 +227,20 @@ def decode_ax25_frame(data_in):
                     address_str += '-'
                     address_str += str(tmp[2])              # SSID
                 if address_field_count > 2:                 # DIGI
-                    keys.append('DIGI' + str(address_field_count - 2))
+                    # keys.append('DIGI' + str(address_field_count - 2))
+                    '''CALL, int(SSID), H-BIT, R-BITs'''
+                    via.append((tmp_str, tmp[2], tmp[1], tmp[3]))
                     if tmp[1]:                              # H Bit
                         address_str += '*'
+                else:
+                    '''CALL, int(SSID), H-BIT, R-BITs'''
+                    ret[keys[address_field_count - 1]] = tmp_str, tmp[2], tmp[1], tmp[3]
                 if tmp[0]:                                  # S Bit ( Stop Bit )
                     end = True                              # End Address fields
-                    # monitor.debug_out('via Stop Bit found .. ' + address_str)
                 else:
                     address_str += ':'
-                '''CALL, int(SSID), H-BIT, R-BITs'''
-                ret[keys[address_field_count - 1]] = tmp_str, tmp[2], tmp[1], tmp[3]
-                tmp_str = ""
+
+                tmp_str = ''
 
         else:
             if byte_count == 1:     # Control Byte
@@ -252,6 +257,7 @@ def decode_ax25_frame(data_in):
     monitor.debug_out('RES: ' + address_str)
     monitor.debug_out(text)
     ret['data'] = (tmp_str2, len(tmp_str2))
+    ret['via'] = via
     if ret['TO'][2] and not ret['FROM'][2]:
         ret['ctl']['cmd'] = True
     elif not ret['TO'][2] and ret['FROM'][2]:

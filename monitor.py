@@ -23,19 +23,15 @@ def monitor(data):
         out += '>' + data['TO'][0].replace(' ', '')
         if data['TO'][1]:
             out += '-' + str(data['TO'][1])
-        if 'DIGI1'in data.keys():
+        if data['via']:
             out += ' via '
-        n = 1
-        for k in data.keys():
-            if 'DIGI' in str(k):
-                dig = 'DIGI' + str(n)
-                out += data[dig][0].replace(' ', '')
-                if data[dig][1]:
-                    out += '-' + str(data[dig][1])
-                    if data[dig][2]:
-                        out += '*'
-                out += ' '
-                n += 1
+        for k in data['via']:
+            out += k[0]
+            if k[1]:
+                out += '-' + str(k[1])
+            if k[2]:
+                out += '*'
+            out += ' '
 
         if data['pid']:
             out += ' [' + data['pid'][0] + ']'
@@ -52,7 +48,7 @@ def monitor(data):
         else:
             out += ' ' + 'res'
         if debug:
-            out += ' ' + str(data['ctl']['hex'])
+            out += ' ' + str(hex(data['ctl']['hex']))
         out += ') ' + data['ctl']['ctl_str']
         if data['data'][1]:
             out += ' (len:' + str(data['data'][1]) + ')'
