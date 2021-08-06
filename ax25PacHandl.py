@@ -236,21 +236,21 @@ def conn_in(conn_id, inp):
     ax_conn[conn_id]['rx'] = [inp]
     tx_pack = get_tx_packet_item(conn_id)
     tx_pack['typ'] = ('UA', inp['ctl']['pf'])                           # P/F Bit uebernehmen  !!!!!!!!!!!!!!! Testen
-    # ax_conn[conn_id]['tx'] = [tx_pack]
-    set_t1(conn_id)
 
-    tx_pack2 = tx_pack
+    tx_pack2 = get_tx_packet_item(conn_id)
     tx_pack2['typ'] = ('I', True,  ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'], )
     tx_pack2['out'] = '############# TEST ###############'
     ax_conn[conn_id]['tx'] = [tx_pack, tx_pack2]
+    set_t1(conn_id)
+
 
 
 def put_txbuffer():
-    for k in ax_conn.keys():
-        tmp = ax_conn[k]['tx']
+    for ke in ax_conn.keys():
+        tmp = ax_conn[ke]['tx']
         for el in tmp:
             tx_buffer.append(el)
-            ax_conn[k]['tx'] = ax_conn[k]['tx'][1:]
+            ax_conn[ke]['tx'] = ax_conn[ke]['tx'][1:]
 
 ##################################################################################################################
 
