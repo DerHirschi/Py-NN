@@ -7,7 +7,7 @@ import serial
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 1200
-MyCallStr = 'MD2SAW-12'
+MyCallStr = 'MD2SAW-11'
 
 MyCall = ax.get_ssid(MyCallStr)
 # TEST DATA
@@ -128,8 +128,6 @@ def get_conn_item():
         'via': [],
         'tx': [],
         'rx': [],
-        'stat': 'SABM',
-        'pf': True,
         'nr': 0,
         'ns': 0,
         't1': 0.0,
@@ -145,6 +143,7 @@ def get_tx_packet_item(conn_id):
         'via': ax_conn[conn_id]['via'],
         'out': '',
         'typ': ('SABM', True, 0),   # Type, P/F, N(R), N(S)
+        'cmd': False,
         'pid': 6,
         'nr': 0,
         'ns': 0,
@@ -168,7 +167,8 @@ def handle_rx(inp):
         monitor.debug_out('###### Conn Data In ########')
         monitor.debug_out(conn_id)
         print('Conn incoming... ' + conn_id)
-        print(inp[1])
+        print('IN> ' + str(inp[1]))
+        # ??????????? Alle Pakete speichern ??
         tmp = ax_conn[conn_id]['rx']
         tmp.append(inp[1])
         ax_conn[conn_id]['rx'] = tmp
@@ -183,7 +183,7 @@ def handle_rx(inp):
         monitor.debug_out(conn_id)
         print('#### Connect Request fm ' + inp[1]['FROM'][0])
         print(conn_id)
-        conn_in(conn_id, inp=inp[1])                                                    #TODO Ver request
+        conn_in(conn_id, inp=inp[1])
 
         monitor.debug_out(ax_conn[conn_id])
         monitor.debug_out('#### Incoming Conn Data In END ######')
@@ -215,6 +215,7 @@ def conn_out():
         ax_conn[conn_id]['via'] = via_list
         tx_pack = get_tx_packet_item(conn_id)
         tx_pack['typ'] = ('SABM', True)
+        tx_pack['cmd'] = True
         ax_conn[conn_id]['tx'] = [tx_pack]
         print(ax_conn)
         print("OK ..")
@@ -224,25 +225,26 @@ def conn_out():
 
 
 def conn_in(conn_id, inp):
-    print(inp)
+    # print(inp)
     ax_conn[conn_id] = get_conn_item()
     dest = inp['FROM']
-    ax_conn[conn_id]['dest'] = (dest[0], dest[1], not dest[2])          # Vers Command !!!!!!!!!!!!!!! Testen
+    ax_conn[conn_id]['dest'] = (dest[0], dest[1])
     call = ax_conn[conn_id]['call']
-    ax_conn[conn_id]['call'] = (call[0], call[1], not inp['TO'][2])     # Vers Command  !!!!!!!!!!!!!!! Testen
+    ax_conn[conn_id]['call'] = (call[0], call[1])
     via = conn_id.split(':')[2:]
     for el in via:
         ax_conn[conn_id]['via'].append((ax.get_ssid(el)[0], ax.get_ssid(el)[1], False))
     ax_conn[conn_id]['rx'] = [inp]
     tx_pack = get_tx_packet_item(conn_id)
-    tx_pack['typ'] = ('UA', inp['ctl']['pf'])                           # P/F Bit uebernehmen  !!!!!!!!!!!!!!! Testen
+    tx_pack['typ'] = ('UA', inp['ctl']['pf'])
+    tx_pack['cmd'] = False
 
     tx_pack2 = get_tx_packet_item(conn_id)
     tx_pack2['typ'] = ('I', True,  ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'], )
+    tx_pack2['cmd'] = True
     tx_pack2['out'] = '############# TEST ###############'
     ax_conn[conn_id]['tx'] = [tx_pack, tx_pack2]
     set_t1(conn_id)
-
 
 
 def put_txbuffer():

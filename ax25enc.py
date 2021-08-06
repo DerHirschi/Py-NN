@@ -121,6 +121,9 @@ def decode_ax25_frame(data_in):
             elif ss_bits == '10':                                       # Wiederholungsaufforderung REJ
                 ctl_str = 'REJ' + str(nr) + bl2str(pf)                  # P/F Bit add +/-
                 ctl['flag'] = 'REJ'
+            elif ss_bits == '11':                                       # Selective Reject SREJ
+                ctl_str = 'SREJ' + str(nr) + bl2str(pf)                 # P/F Bit add +/-
+                ctl['flag'] = 'SREJ'
             else:
                 ctl_str = 'S-UNKNOW'
                 ctl['flag'] = 'S-UNKNOW'
@@ -202,8 +205,8 @@ def decode_ax25_frame(data_in):
 
     tmp_str, tmp_str2, address_str, end = "", bytearray(0), "", False
     address_field_count, byte_count = 0, 0
-    keys = ["TO", "FROM"]
-    monitor.debug_out("Dec IN: " + str(data_in))
+    keys = ['TO', 'FROM']
+    monitor.debug_out('Dec IN: ' + str(data_in))
     for i in data_in:
         byte_count += 1
         if not end:                                         # decode Address fields
@@ -219,17 +222,17 @@ def decode_ax25_frame(data_in):
                 address_field_count += 1
                 byte_count = 0
                 if tmp[2] != 0:
-                    address_str += "-"
+                    address_str += '-'
                     address_str += str(tmp[2])              # SSID
                 if address_field_count > 2:                 # DIGI
-                    keys.append("DIGI" + str(address_field_count - 2))
+                    keys.append('DIGI' + str(address_field_count - 2))
                     if tmp[1]:                              # H Bit
-                        address_str += "*"
+                        address_str += '*'
                 if tmp[0]:                                  # S Bit ( Stop Bit )
                     end = True                              # End Address fields
                     # monitor.debug_out('via Stop Bit found .. ' + address_str)
                 else:
-                    address_str += ":"
+                    address_str += ':'
                 '''CALL, int(SSID), H-BIT, R-BITs'''
                 ret[keys[address_field_count - 1]] = tmp_str, tmp[2], tmp[1], tmp[3]
                 tmp_str = ""
@@ -245,10 +248,15 @@ def decode_ax25_frame(data_in):
             else:
                 tmp_str2.append(i)
 
-    text = str(tmp_str2.decode(errors="ignore"))
-    monitor.debug_out("RES: " + address_str)
+    text = str(tmp_str2.decode(errors='ignore'))
+    monitor.debug_out('RES: ' + address_str)
     monitor.debug_out(text)
-    ret["data"] = (tmp_str2, len(tmp_str2))
+    ret['data'] = (tmp_str2, len(tmp_str2))
+    if ret['TO'][2] and not ret['FROM'][2]:
+        ret['ctl']['cmd'] = True
+    elif not ret['TO'][2] and ret['FROM'][2]:
+        ret['ctl']['cmd'] = False
+
     if debug:
         for k in ret.keys():
             monitor.debug_out(ret[k])
@@ -259,11 +267,17 @@ def encode_ax25_frame(con_data):
     monitor.debug_out('################ ENC ##################################')
     out_str = ''
     temp = (con_data['call'], con_data['dest'])
-    call, call_ssid, call_c, dest, dest_ssid, dest_c = temp[0][0], temp[0][1], temp[0][2], temp[1][0], temp[1][1], temp[1][2]
+    call, call_ssid, dest, dest_ssid = temp[0][0], temp[0][1], temp[1][0], temp[1][1]
     via = con_data['via']
 
     typ = con_data['typ']
     pid = con_data['pid']
+    # dest_c, call_c = True, True
+    if con_data['cmd']:
+        dest_c, call_c = True, False
+    else:
+        dest_c, call_c = False, True
+
     data_out = con_data['out']
     monitor.debug_out(str(con_data))
 
@@ -297,7 +311,7 @@ def encode_ax25_frame(con_data):
             ret = bin(max(min(nr, 7), 0))[2:].zfill(3) + ret[3:]        # N(R)
             ret = ret[:4] + bin(max(min(ns, 7), 0))[2:].zfill(3) + '0'  # N(S)
         # S Block
-        elif flag in ['RR', 'RNR', 'REJ']:
+        elif flag in ['RR', 'RNR', 'REJ', 'SREJ']:
             nr = type_list[2]
             ret = ret[:-2] + '01'
             ret = bin(max(min(nr, 7), 0))[2:].zfill(3) + ret[3:]
@@ -307,6 +321,8 @@ def encode_ax25_frame(con_data):
                 ret = ret[:4] + '01' + ret[-2:]
             elif flag == 'REJ':
                 ret = ret[:4] + '10' + ret[-2:]
+            elif flag == 'SREJ':
+                ret = ret[:4] + '11' + ret[-2:]
         # U Block
         elif flag in ["SABM", "DISC", "DM", "UA", "FRMR", "UI"]:
             ret = ret[:-2] + '11'
@@ -345,7 +361,7 @@ def encode_ax25_frame(con_data):
         return format_hex(ret)
 
     out_str += encode_address_char(dest)
-    out_str += encode_ssid(dest_ssid, dest_c)             # TODO c/h Bit = Version
+    out_str += encode_ssid(dest_ssid, dest_c)
     out_str += encode_address_char(call)
     if via:                                             # Set Stop Bit
         out_str += encode_ssid(call_ssid, call_c)
@@ -357,9 +373,9 @@ def encode_ax25_frame(con_data):
             else:
                 out_str += encode_ssid(i[1], i[2])
     else:
-        out_str += encode_ssid(call_ssid, call_c, True)  # TODO c/h Bit = Version
+        out_str += encode_ssid(call_ssid, call_c, True)
 
-    c_byte = encode_c_byte(typ)               # Control Byte
+    c_byte = encode_c_byte(typ)                         # Control Byte
     out_str += c_byte[0]
     if c_byte[1]:                                       # PID Byte
         out_str += encode_pid_byte(pid)
