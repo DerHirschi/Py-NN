@@ -49,11 +49,12 @@ def format_hex(inp=''):
 
 def decode_ax25_frame(data_in):
     ret = {
-        "TO": '',
-        "FROM": '',
-        "via": [],
-        "ctl": [],
-        "pid": ()
+        'TO': (),
+        'FROM': (),
+        'via': [],
+        'ctl': [],
+        'pid': (),
+        'data': ('', 0)
         # "DIGI1..8"
         # "data"
     }
@@ -62,11 +63,10 @@ def decode_ax25_frame(data_in):
 
     def decode_address_char(in_byte):    # Convert to 7 Bit ASCII
         bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]      # TODO just Shift the Bit
-        he = hex(int(bin_char, 2))
-        try:
-            return bytes.fromhex(he[2:]).decode().replace(' ', '')
-        except ValueError as er:
-            raise (er, in_byte)
+        char = chr(int(bin_char, 2))
+
+        # return bytes.fromhex(he).decode().replace(' ', '')
+        return char.replace(' ', '')
 
     def decode_ssid(in_byte):       # Address > CRRSSID1    Digi > HRRSSID1
         bi = bin(int(in_byte, 16))[2:].zfill(8)
@@ -86,8 +86,9 @@ def decode_ax25_frame(data_in):
             'cmd': False,           # Command or Report ( C Bits in Address Field )
             'nr': -1,               # N(R)
             'ns': -1,               # N(S)
-            'pid': False,           # Next Byte PID Field
-            'hex': 0x00             # Input as Hex ( Debugging )
+            'pid': False,           # Next Byte PID Field Trigger
+            'info': False,          # Info Field Trigger
+            'hex': 0x00             # Input as Hex
         }
 
         def bl2str(inp):
@@ -100,16 +101,15 @@ def decode_ax25_frame(data_in):
         bi = bin(int(in_byte, 16))[2:].zfill(8)
         pf = bool(int(bi[3], 2))                                                          # P/F
         ctl['pf'] = pf
+        ctl['hex'] = int(in_byte, 16)
         if bi[-1] == '0':                               # I-Block   Informationsübertragung
             nr = int(bi[:3], 2)
             ns = int(bi[4:7], 2)
             ctl_str = 'I' + str(nr) + str(ns) + bl2str(pf)
-            ctl['type'] = 'I'
-            ctl['nr'] = nr
-            ctl['ns'] = ns
-            ctl['pid'] = True
+            ctl['type'], ctl['flag'] = 'I', 'I'
+            ctl['nr'], ctl['ns'] = nr, ns
+            ctl['pid'], ctl['info'] = True, True
             ctl['ctl_str'] = ctl_str
-            ctl['flag'] = 'I'
         elif bi[-2:] == '01':                           # S-Block
             nr = int(bi[:3], 2)
             ss_bits = bi[4:6]
@@ -126,14 +126,14 @@ def decode_ax25_frame(data_in):
                 ctl_str = 'SREJ' + str(nr) + bl2str(pf)                 # P/F Bit add +/-
                 ctl['flag'] = 'SREJ'
             else:
-                ctl_str = 'S-UNKNOW'
-                ctl['flag'] = 'S-UNKNOW'
+                monitor.debug_out('C-Byte Error S Frame!! ' + str(bi) + ' ' + str(in_byte), True)
+                monitor.debug_out('!!!!!!!!! C-Byte Error S Frame !!!!!!!!! ' + str(bi) + ' ' + str(in_byte))
+                return False
             ctl['type'] = 'S'
             ctl['nr'] = nr
             ctl['ctl_str'] = ctl_str
 
         elif bi[-2:] == '11':                           # U-Block
-            ctl['type'] = 'U'
             mmm = bi[0:3]
             mm = bi[4:6]
             if mmm == '001' and mm == '11':
@@ -154,14 +154,25 @@ def decode_ax25_frame(data_in):
             elif mmm == '100' and mm == '01':
                 ctl_str = "FRMR" + bl2str(pf)   # Rückweisung eines Blocks
                 ctl['flag'] = 'FRMR'
-                ctl['pid'] = True
+                ctl['info'] = True
             elif mmm == '000' and mm == '00':
                 ctl_str = "UI" + bl2str(pf)     # Unnummerierte Information UI
                 ctl['flag'] = 'UI'
-                ctl['pid'] = True
+                ctl['pid'], ctl['info'] = True, True
+            elif mmm == '111' and mm == '00':
+                ctl_str = 'TEST' + bl2str(pf)     # TEST Frame
+                ctl['flag'] = 'TEST'
+                ctl['info'] = True
+            elif mmm == '101' and mm == '11':
+                ctl_str = 'XID' + bl2str(pf)     # XID Frame
+                ctl['flag'] = 'XID'
+            else:
+                monitor.debug_out('C-Byte Error U Frame!! ' + str(bi) + ' ' + str(in_byte), True)
+                monitor.debug_out('!!!!!!!!! C-Byte Error U Frame !!!!!!!!! ' + str(bi) + ' ' + str(in_byte))
+
+            ctl['type'] = 'U'
             ctl['ctl_str'] = ctl_str
 
-        ctl['hex'] = int(in_byte, 16)
         return ctl
 
     def decode_pid_byte(in_byte):
@@ -204,6 +215,8 @@ def decode_ax25_frame(data_in):
 
         return flag, hex(in_byte)
 
+    #################################################################
+
     tmp_str, tmp_str2, address_str, end = "", bytearray(0), "", False
     address_field_count, byte_count = 0, 0
     keys = ['TO', 'FROM']
@@ -213,10 +226,7 @@ def decode_ax25_frame(data_in):
         byte_count += 1
         if not end:                                         # decode Address fields
             if byte_count != 7:                             # 7 Byte Address Chars
-                try:
-                    tmp = decode_address_char(conv_hex(i))
-                except ValueError as e:
-                    raise e
+                tmp = decode_address_char(conv_hex(i))
                 address_str += tmp
                 tmp_str += tmp
             else:                                           # 7 th Byte SSID (CRRSSID1)
@@ -227,7 +237,6 @@ def decode_ax25_frame(data_in):
                     address_str += '-'
                     address_str += str(tmp[2])              # SSID
                 if address_field_count > 2:                 # DIGI
-                    # keys.append('DIGI' + str(address_field_count - 2))
                     '''CALL, int(SSID), H-BIT, R-BITs'''
                     via.append([tmp_str, tmp[2], tmp[1], tmp[3]])
                     if tmp[1]:                              # H Bit
@@ -249,15 +258,21 @@ def decode_ax25_frame(data_in):
                 if ret['ctl']['pid']:
                     ret['pid'] = decode_pid_byte(conv_hex(i))
                 else:
-                    tmp_str2.append(i)
+                    tmp_str2.append(i)                          # TODO chr() ?
             else:
-                tmp_str2.append(i)
+                tmp_str2.append(i)                              # TODO chr() ?
 
-    text = str(tmp_str2.decode(errors='ignore'))
+    text = str(tmp_str2.decode(errors='ignore'))                # TODO chr() ?
     monitor.debug_out('RES: ' + address_str)
     monitor.debug_out(text)
-    ret['data'] = (tmp_str2, len(tmp_str2))
+    if ret['ctl']['info']:
+        ret['data'] = (tmp_str2, len(tmp_str2))                 # TODO chr() ?
     ret['via'] = via
+    for ke in ['TO', 'FROM', 'ctl']:            # Little Check Frame is plausible TODO better check
+        if not ret[ke]:
+            monitor.debug_out('"-------------- ERROR beim Decoden !! -------------"', True)
+            monitor.debug_out(ret, True)
+            return False
     if ret['TO'][2] and not ret['FROM'][2]:
         ret['ctl']['cmd'] = True
     elif not ret['TO'][2] and ret['FROM'][2]:
@@ -330,7 +345,7 @@ def encode_ax25_frame(con_data):
             elif flag == 'SREJ':
                 ret = ret[:4] + '11' + ret[-2:]
         # U Block
-        elif flag in ["SABM", "DISC", "DM", "UA", "FRMR", "UI"]:
+        elif flag in ['SABM', 'DISC', 'DM', 'UA', 'FRMR', 'UI', 'TEST', 'XID']:
             ret = ret[:-2] + '11'
             if flag == 'SABM':
                 ret = '001' + ret[3] + '11' + ret[-2:]
@@ -343,8 +358,14 @@ def encode_ax25_frame(con_data):
             elif flag == 'UI':
                 ret = '000' + ret[3] + '00' + ret[-2:]
                 pid_tr, info_f_tr = True, True
-            elif flag == 'FRMR':
+            elif flag == 'FRMR':                        # TODO Not implemented yet
                 ret = '100' + ret[3] + '01' + ret[-2:]
+                info_f_tr = True
+            elif flag == 'TEST':                        # TODO Not completely implemented yet
+                ret = '111' + ret[3] + '00' + ret[-2:]
+                info_f_tr = True
+            elif flag == 'XID':                         # TODO Not implemented yet
+                ret = '101' + ret[3] + '11' + ret[-2:]
                 info_f_tr = True
         return format_hex(ret), pid_tr, info_f_tr
 
@@ -400,59 +421,3 @@ def encode_ax25_frame(con_data):
 def send_kiss(ser, data_in):
     monitor.debug_out("Send-Kiss: " + str(data_in))
     ser.write(bytes.fromhex('c000' + data_in + 'c0'))
-
-'''
-def read_kiss():
-    global test_snd_packet, tx_buffer
-    pack = b''
-    ser = serial.Serial(ser_port, ser_baud, timeout=1)
-    while not p_end:
-        b = ser.read()
-        pack += b
-        if b:
-            if conv_hex(b[0]) == 'c0' and len(pack) > 2:
-                monitor.debug_out("----------------Kiss Data IN ----------------------")
-                try:
-                    out = decode_ax25_frame(pack[2:-1])
-                    # if out[0] in
-                    if out[0] in rx_buffer.keys():
-                        rx_buffer[out[0]].append(out[1])
-                    else:
-                        rx_buffer[out[0]] = [out[1]]
-                    monitor.monitor(out[1])
-                    monitor.debug_out('################ DEC END ##############################')
-
-                except ValueError as e:
-                    monitor.debug_out("-------------- ERROR beim Decoden !! -------------", True)
-                    monitor.debug_out(e, True)
-                    monitor.debug_out(pack, True)
-                    monitor.debug_out('', True)
-                monitor.debug_out("_________________________________________________")
-                pack = b''
-        elif tx_buffer:
-            c = 0
-            while tx_buffer and c < ax25MaxBufferTX:
-                send_kiss(ser, encode_ax25_frame(tx_buffer[0]))
-                tx_buffer = tx_buffer[1:]
-                c += 1
-
-        # TESTING
-        if test_snd_packet != -1 and send_tr:
-            send_kiss(ser, encode_ax25_frame(ax_test_conn[test_snd_packet]))
-            test_snd_packet = -1
-            while send_tr:
-                time.sleep(0.01)
-
-
-##################################################################################################################
-'''
-
-
-'''
-
-    try:
-        print(decode_ax25_frame(b'r\x0c\xbd:1\xa6\xcf\r\xefVtPI\xfd\xe1\xa8\xa6\t\xa2\xa2U\x91!D\xffjV\x0b\x97N'))
-
-'''
-
-

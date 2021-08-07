@@ -34,9 +34,9 @@ ax_test_pac = [{
 {   # 2
     'call': ['MD2SAW', 8],
     'dest': ['DX0SAW', 0],
-    'via': [['CB0SAW', 9, True], ['CB0SAW', 0, False]],
-    'out': '',
-    'typ': ['SABM', True],
+    'via': [],
+    'out': 'TEST',
+    'typ': ['TEST', True],
     'cmd': True,
     'pid': 6
 }]
@@ -193,6 +193,7 @@ def DISC_RX(conn_id, inp):
     tx_pack['cmd'] = False
     tx_buffer.append(tx_pack)
     if conn_id in ax_conn.keys():
+        print('#### DISCO fm ' + inp['FROM'][0])
         del ax_conn[conn_id]
 
 
@@ -236,13 +237,12 @@ def SABM_RX(conn_id, inp):
     monitor.debug_out(conn_id)
     print('#### Connect Request fm ' + inp['FROM'][0])
     print(conn_id)
-    dest = inp['FROM']
-    call = inp['TO']
+    from_call, to_call = inp['FROM'], inp['TO']
     # Set NEW conn Data
     if conn_id not in ax_conn:
         ax_conn[conn_id] = get_conn_item()
-        ax_conn[conn_id]['dest'] = [dest[0], dest[1]]
-        ax_conn[conn_id]['call'] = [call[0], call[1]]
+        ax_conn[conn_id]['dest'] = [from_call[0], from_call[1]]
+        ax_conn[conn_id]['call'] = [to_call[0], to_call[1]]
         ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'] = 0, 0
         for el in inp['via']:
             ax_conn[conn_id]['via'].append([el[0], el[1], False])
@@ -292,8 +292,9 @@ def read_kiss():
         if b:           # RX ###################################################################################
             if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
                 monitor.debug_out("----------------Kiss Data IN ----------------------")
-                try:
-                    out = ax.decode_ax25_frame(pack[2:-1])      # DEKISS
+                # try:
+                out = ax.decode_ax25_frame(pack[2:-1])      # DEKISS
+                if out:
                     handle_rx(out)
 
                     ############ TEST ##############
@@ -304,12 +305,15 @@ def read_kiss():
                     ########## TEST ENDE ###########
 
                     monitor.debug_out('################ DEC END ##############################')
-
-                except ValueError as e:
+                else:
+                    monitor.debug_out("ERROR Dec> " + str(out), True)
+                '''
+                except (ValueError, TypeError) as e:
                     monitor.debug_out("-------------- ERROR beim Decoden !! -------------", True)
                     monitor.debug_out(e, True)
                     monitor.debug_out(pack, True)
                     monitor.debug_out('', True)
+                '''
                 monitor.debug_out("_________________________________________________")
                 pack = b''
 
@@ -339,7 +343,9 @@ i = input("T = Test\n\rEnter = Go\n\r> ")
 if i == 't' or i == 'T':
     #enc = ax.encode_ax25_frame(ax_test_pac[test_snd_packet])
     #print(ax.decode_ax25_frame(bytes.fromhex(enc)))
-    print(ax.decode_ax25_frame(b'\xc0\x00\xa8\x8a\xa6\xa8@@\xe0\x9a\x88d\xa6\x82\xae`\x86\x84`\xa6\x82\xae\xe0\x88\xb0`\xa6\x82\xae\xe1?\xc0'[2:-1]))
+    # ERROR FRAME> print(ax.decode_ax25_frame(b'\xc0\x00\x95ki^\x11\x19\xafw%!\xc5\xf7\xb7\x88S\n\x18W\xca\xd5\xdf\x87<\xc9}\x1bW\xc3\xcd\xad\x1d<$\xa5\x15\xef\x8aXS\xc0'[2:-1]))
+    print(ax.decode_ax25_frame(b'\xc0\x00\xa6\xa8\x82\xa8\xaa\xa6\xe0\x88\xb0`\xa6\x82\xaea\x13\xf0Links:  0, Con\xc0'[2:-1]))
+    # b'u\x95ki^\x11\x19\xafw%!\xc5\xf7\xb7\x88S\n\x18W\xca\xd5\xdf\x87<\xc9}\x1bW\xc3\xcd\xad\x1d<$\xa5\x15\xef\x8aXS'
     pass
 else:
     os.system('clear')
