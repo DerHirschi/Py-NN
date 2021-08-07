@@ -139,45 +139,38 @@ def set_t1(conn_key):
 def handle_rx(inp):
     monitor.monitor(inp[1])
     conn_id = ax.reverse_addr_str(inp[0])
-
-    # Connected Stations
-    if conn_id in ax_conn.keys():
-        # Check all Digi Bits are set
+    if inp[0].split(':')[0] in Calls:
         if inp[1]['via'] and all(not el[2] for el in inp[1]['via']):
-            monitor.debug_out('###### Conn Data In not Digipeated yet !!########')
+            monitor.debug_out('###### Data In not Digipeated yet !!########')
             monitor.debug_out('')
         else:
-            monitor.debug_out('')
-            monitor.debug_out('###### Conn Data In ########')
-            monitor.debug_out(conn_id)
-            print('Conn incoming... ' + conn_id)
-            print('IN> ' + str(inp[1]))
-            # ??????????? Alle Pakete speichern ??
-            ax_conn[conn_id]['rx'].append(inp[1])
+            # Connected Stations
+            if conn_id in ax_conn.keys():
+                handle_rx_fm_conn(conn_id, inp[1])
 
-            ax_conn[conn_id]['t1'], ax_conn[conn_id]['ret'] = 0, 0
+            # Incoming connection SABM or SABME
+            if inp[1]['ctl']['hex'] in [0x3f, 0x7f]:
+                SABM_RX(conn_id, inp=inp[1])        # Handle connect Request
 
-            monitor.debug_out(ax_conn[conn_id])
-            monitor.debug_out('#### Conn Data In END ######')
-            monitor.debug_out('')
+            # Incoming DISC
+            if inp[1]['ctl']['hex'] == 0x53:
+                DISC_RX(conn_id, inp=inp[1])        # Handle DISC Request
 
-    # Incoming connection SABM or SABME
-    if inp[1]['ctl']['hex'] in [0x3f, 0x7f] and inp[0].split(':')[0] in Calls:
-        # Check all Digi Bits are set
-        if inp[1]['via'] and all(not el[2] for el in inp[1]['via']):
-            monitor.debug_out('###### Conn REQ incoming. not Digipeated yet !!########')
-            monitor.debug_out('')
-        else:
-            SABM_RX(conn_id, inp=inp[1])  # Handle connect Request
-    # Incoming DISC
 
-    if inp[1]['ctl']['hex'] == 0x53 and inp[0].split(':')[0] in Calls:
-        # Check all Digi Bits are set
-        if inp[1]['via'] and all(not el[2] for el in inp[1]['via']):
-            monitor.debug_out('###### Disco REQ incoming. not Digipeated yet !!########')
-            monitor.debug_out('')
-        else:
-            DISC_RX(conn_id, inp=inp[1])        # Handle DISC Request
+def handle_rx_fm_conn(conn_id, inp):    # DUMMY
+    monitor.debug_out('')
+    monitor.debug_out('###### Conn Data In ########')
+    monitor.debug_out(conn_id)
+    print('Conn incoming... ' + conn_id)
+    print('IN> ' + str(inp))
+    # ??????????? Alle Pakete speichern ??
+    ax_conn[conn_id]['rx'].append(inp)
+
+    ax_conn[conn_id]['t1'], ax_conn[conn_id]['ret'] = 0, 0
+
+    monitor.debug_out(ax_conn[conn_id])
+    monitor.debug_out('#### Conn Data In END ######')
+    monitor.debug_out('')
 
 
 def DISC_RX(conn_id, inp):
@@ -186,12 +179,9 @@ def DISC_RX(conn_id, inp):
     monitor.debug_out(conn_id)
     print('#### DISCO Request fm ' + inp['FROM'][0])
     print(conn_id)
-
     # Answering DISC
-    tx_pack = get_tx_packet_item(inp)
-    tx_pack['typ'] = ('DM', inp['ctl']['pf'])
-    tx_pack['cmd'] = False
-    tx_buffer.append(tx_pack)
+    tx_buffer.append(DM_frm(inp))
+
     if conn_id in ax_conn.keys():
         print('#### DISCO fm ' + inp['FROM'][0])
         del ax_conn[conn_id]
@@ -237,39 +227,61 @@ def SABM_RX(conn_id, inp):
     monitor.debug_out(conn_id)
     print('#### Connect Request fm ' + inp['FROM'][0])
     print(conn_id)
-    from_call, to_call = inp['FROM'], inp['TO']
-    # Set NEW conn Data
+    # Setup NEW conn Data
     if conn_id not in ax_conn:
-        ax_conn[conn_id] = get_conn_item()
-        ax_conn[conn_id]['dest'] = [from_call[0], from_call[1]]
-        ax_conn[conn_id]['call'] = [to_call[0], to_call[1]]
-        ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'] = 0, 0
-        for el in inp['via']:
-            ax_conn[conn_id]['via'].append([el[0], el[1], False])
-        ax_conn[conn_id]['via'].reverse()
-        ax_conn[conn_id]['rx'] = [inp]
-    # Set NEW conn Data End
+        setup_new_conn(conn_id, inp)
 
-    # Answering Conn Req.
-    tx_pack = get_tx_packet_item(inp=inp)
-    # print('1 > ' + str(tx_pack))
-    tx_pack['typ'] = ['UA', inp['ctl']['pf']]
-    tx_pack['cmd'] = False
-    ax_conn[conn_id]['tx'].append(tx_pack)
+    # Answering Conn Req (UA).
+    tx_buffer.append(UA_frm(inp))
 
     # C-Text
-    tx_pack2 = get_tx_packet_item(conn_id=conn_id)
-    # print('2 > ' + str(tx_pack2))
-    tx_pack2['typ'] = ['I', False,  ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns']]
-    tx_pack2['cmd'] = True
-    tx_pack2['out'] = '############# TEST ###############'
-    ax_conn[conn_id]['tx'].append(tx_pack2)
+    ax_conn[conn_id]['tx'].append(I_frm(conn_id, '############# TEST ###############'))
 
     set_t1(conn_id)
 
     monitor.debug_out(ax_conn[conn_id])
     monitor.debug_out('#### Incoming Conn Data In END ######')
     monitor.debug_out('')
+
+
+def setup_new_conn(conn_id, inp_data):
+    ax_conn[conn_id] = get_conn_item()
+    from_call, to_call = inp_data['FROM'], inp_data['TO']
+    ax_conn[conn_id]['dest'] = [from_call[0], from_call[1]]
+    ax_conn[conn_id]['call'] = [to_call[0], to_call[1]]
+    ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns'] = 0, 0
+    for el in inp_data['via']:
+        ax_conn[conn_id]['via'].append([el[0], el[1], False])
+    ax_conn[conn_id]['via'].reverse()
+    ax_conn[conn_id]['rx'] = [inp_data]
+
+#######################################################################
+
+
+def UA_frm(inp):
+    # Answering Conn Req.
+    pac = get_tx_packet_item(inp=inp)
+    pac['typ'] = ['UA', inp['ctl']['pf']]
+    pac['cmd'] = False
+    return pac
+
+
+def I_frm(conn_id, data=''):
+    pac = get_tx_packet_item(conn_id=conn_id)
+    pac['typ'] = ['I', False, ax_conn[conn_id]['nr'], ax_conn[conn_id]['ns']]
+    pac['cmd'] = True
+    pac['out'] = data
+    return pac
+
+
+def DM_frm(inp):
+    # Answering DISC
+    pac = get_tx_packet_item(inp)
+    pac['typ'] = ('DM', inp['ctl']['pf'])
+    pac['cmd'] = False
+    return pac
+
+#############################################################################
 
 
 def put_txbuffer():
