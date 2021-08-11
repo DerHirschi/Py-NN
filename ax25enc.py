@@ -169,6 +169,7 @@ def decode_ax25_frame(data_in):
             else:
                 monitor.debug_out('C-Byte Error U Frame!! ' + str(bi) + ' ' + str(in_byte), True)
                 monitor.debug_out('!!!!!!!!! C-Byte Error U Frame !!!!!!!!! ' + str(bi) + ' ' + str(in_byte))
+                return False
 
             ctl['type'] = 'U'
             ctl['ctl_str'] = ctl_str
@@ -176,7 +177,6 @@ def decode_ax25_frame(data_in):
         return ctl
 
     def decode_pid_byte(in_byte):
-        flag = ""
         in_byte = int(in_byte, 16)
         bi = bin(in_byte)[2:].zfill(8)
         if bi[2:5] == '01':
@@ -212,6 +212,10 @@ def decode_ax25_frame(data_in):
             flag = 'Appletalk ARP'
         elif in_byte == 0xFF:               # Escape. Next Byte has more L3 Infos
             flag = False
+        else:
+            monitor.debug_out('PID-Byte Error' + str(bi) + ' ' + str(in_byte), True)
+            monitor.debug_out('!!!!!!!!! PID-Byte Error !!!!!!!!! ' + str(bi) + ' ' + str(in_byte))
+            return False
 
         return flag, hex(in_byte)
 
@@ -253,26 +257,33 @@ def decode_ax25_frame(data_in):
 
         else:
             if byte_count == 1:     # Control Byte
-                ret['ctl'] = decode_c_byte(conv_hex(i))
+                if ret['FROM'] and ret['TO']:
+                    ret['ctl'] = decode_c_byte(conv_hex(i))
             elif byte_count == 2:   # PID Byte in UI and I Frames
-                if ret['ctl']['pid']:
-                    ret['pid'] = decode_pid_byte(conv_hex(i))
-                else:
-                    tmp_str2.append(i)                          # TODO chr() ?
+                if ret['ctl']:
+                    if ret['ctl']['pid']:
+                        ret['pid'] = decode_pid_byte(conv_hex(i))
+                    else:
+                        tmp_str2.append(i)                          # TODO chr() ?
             else:
                 tmp_str2.append(i)                              # TODO chr() ?
 
     text = str(tmp_str2.decode(errors='ignore'))                # TODO chr() ?
     monitor.debug_out('RES: ' + address_str)
     monitor.debug_out(text)
-    if ret['ctl']['info']:
-        ret['data'] = (tmp_str2, len(tmp_str2))                 # TODO chr() ?
+    if ret['ctl']:
+        if ret['ctl']['info']:
+            ret['data'] = (tmp_str2, len(tmp_str2))                 # TODO chr() ?
     ret['via'] = via
-    for ke in ['TO', 'FROM', 'ctl']:            # Little Check Frame is plausible TODO better check
+    for ke in ['TO', 'FROM', 'ctl']:         # Little Check Frame is plausible TODO better check
         if not ret[ke]:
             monitor.debug_out('"-------------- ERROR beim Decoden !! -------------"', True)
             monitor.debug_out(ret, True)
             return False
+    if not ret['pid'] and ret['ctl']['pid']:
+        monitor.debug_out('"-------------- ERROR beim Decoden !! No PID ---------"', True)
+        monitor.debug_out(ret, True)
+        return False
     if ret['TO'][2] and not ret['FROM'][2]:
         ret['ctl']['cmd'] = True
     elif not ret['TO'][2] and ret['FROM'][2]:
