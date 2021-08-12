@@ -315,38 +315,42 @@ def SABM_RX(conn_id, inp):
 
 
 def confirm_I_Frames(conn_id, inp):
-    conf_vs = []
+    # conf_vs = []
+    '''
     ######################################################################
     # Confirm multiple Frames
     # TODO Testing with multiple Frames
     # TODO Debugging !!!
-    if ax_conn[conn_id]['vr'] > inp['ctl']['nr']:
+    if ax_conn[conn_id]['vs'] > inp['ctl']['nr']:
         for i in list(range(inp['ctl']['nr'], 8)):
             conf_vs.append(i)
-        for i in list(range(0, (ax_conn[conn_id]['vr']))):
+        for i in list(range(0, (ax_conn[conn_id]['vs']))):
             conf_vs.append(i)
-    elif inp['ctl']['nr'] > ax_conn[conn_id]['vr']:
-        for i in list(range(ax_conn[conn_id]['vr'], (inp['ctl']['nr']))):
+    elif inp['ctl']['nr'] > ax_conn[conn_id]['vs']:
+        for i in list(range(ax_conn[conn_id]['vs'], (inp['ctl']['nr']))):
             conf_vs.append(i)
     else:
         conf_vs.append(inp['ctl']['nr'])
     ######################################################################
+    '''
+    if ax_conn[conn_id]['noAck']:
+        tmp_ack = ax_conn[conn_id]['noAck'][:ax_conn[conn_id]['noAck'].index(inp['ctl']['nr'] - 1) + 1]
 
-    print('inp > ' + str(inp['ctl']['nr']))
-    print('ax_conn > ' + str(ax_conn[conn_id]['vr']))
-    ax_conn[conn_id]['vs'] = inp['ctl']['nr']
-    ###########################################
-    # Delete confirmed I Frames from TX- Buffer
-    tmp = ax_conn[conn_id]['tx']
-    print('conf. VS > ' + str(conf_vs))
-    print('TX Buffer > ' + str(ax_conn[conn_id]['tx']))
-    # Delete all VS < VR
-    for el in tmp:
-        if el['typ'][0] == 'I' and (el['typ'][3] in conf_vs):
-            ax_conn[conn_id]['noAck'].remove(el['typ'][3])
-            ax_conn[conn_id]['tx'].remove(el)
-            ax_conn[conn_id]['max_frame_c'] -= 1
-    ###########################################
+        print('### CONF inp > ' + str(inp['ctl']['nr']))
+        print('### CONF ax_conn > ' + str(ax_conn[conn_id]['vr']))
+        ax_conn[conn_id]['vs'] = inp['ctl']['nr']
+        ###########################################
+        # Delete confirmed I Frames from TX- Buffer
+        tmp = ax_conn[conn_id]['tx']
+        print('### conf. VS > ' + str(ax_conn[conn_id]['noAck']))
+        print('### CONF TX Buffer > ' + str(ax_conn[conn_id]['tx']))
+        # Delete all VS < VR
+        for el in tmp:
+            if el['typ'][0] == 'I' and (el['typ'][3] in tmp_ack):
+                ax_conn[conn_id]['noAck'].remove(el['typ'][3])
+                ax_conn[conn_id]['tx'].remove(el)
+                ax_conn[conn_id]['max_frame_c'] -= 1
+        ###########################################
     ax_conn[conn_id]['N2'] = 1
 
 
