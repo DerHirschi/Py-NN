@@ -93,19 +93,18 @@ ax_conn = {
 
 
 def get_conn_item():
-
     return {
         'call': [MyCall[0], MyCall[1]],
         'dest': ['', 0],
         'via': [],
         'tx': [],
         'tx_ctl': [],
-        'rx': [],       # Not needed till yet
+        # 'rx': [],       # Not needed till yet
         'rx_data': '',
         'stat': '',
         'vs': 0,
         'vr': 0,
-        'nr': 0,
+        # 'nr': 0,
         'T1': 0,
         'T2': 0,
         'T3': 0.0,
@@ -180,17 +179,19 @@ def handle_rx(inp):
             # !!! Same Action underneath !!! inp[1]['ctl']['hex'] not in [0x3f, 0x7f, 0x53, 0x13] !?!
             #########################################################################################
             # Incoming UI
-            elif inp[1]['ctl']['hex'] == 0x13:                      # UI p/f True
-                DM_TX(inp[1])                                       # Confirm UI ??? TODO DM or UA ?
+            # elif inp[1]['ctl']['hex'] == 0x13:                      # UI p/f True
+            #     DM_TX(inp[1])                                       # Confirm UI ??? TODO DM or UA ?
             #########################################################################################
-            elif inp[1]['ctl']['hex'] not in [0x3f, 0x7f, 0x53, 0x13]:   # NOT SABM, SABME, DISC, UI p/f True
-                DM_TX(inp[1])
+            # elif inp[1]['ctl']['hex'] not in [0x3f, 0x7f, 0x53, 0x13]:   # NOT SABM, SABME, DISC, UI p/f True
+            #     DM_TX(inp[1])
             # Incoming connection SABM or SABME
-            if inp[1]['ctl']['hex'] in [0x3f, 0x7f]:                # SABM or SABME p/f True
+            elif inp[1]['ctl']['hex'] in [0x3f, 0x7f]:              # SABM or SABME p/f True
                 SABM_RX(conn_id, inp=inp[1])                        # Handle connect Request
             # Incoming DISC
             elif inp[1]['ctl']['hex'] == 0x53:                      # DISC p/f True
                 DISC_RX(conn_id, inp=inp[1])                        # Handle DISC Request
+            else:
+                DM_TX(inp[1])
 
 
 def handle_rx_fm_conn(conn_id, inp):
@@ -321,7 +322,8 @@ def confirm_I_Frames(conn_id, inp):
 
     print('inp > ' + str(inp['ctl']['nr']))
     print('ax_conn > ' + str(ax_conn[conn_id]['vr']))
-    ax_conn[conn_id]['vr'] = inp['ctl']['nr']
+    ax_conn[conn_id]['vs'] = inp['ctl']['nr']
+    # ax_conn[conn_id]['vr'] = inp['ctl']['nr']
     ###########################################
     # Delete confirmed I Frames from TX- Buffer
     tmp = ax_conn[conn_id]['tx']
@@ -354,23 +356,30 @@ def RR_TX_T3(conn_id):
 
 
 def I_RX(conn_id, inp):
-    if inp['ctl']['nr'] == ax_conn[conn_id]['vr']:
+
+    if inp['ctl']['ns'] == ax_conn[conn_id]['vr']:
         # TODO Sequenz stimmt nicht
-        ax_conn[conn_id]['vr'] = (1 + ax_conn[conn_id]['vr']) % 8
         ax_conn[conn_id]['rx_data'] += str(inp['data'])
+        ax_conn[conn_id]['vr'] = (1 + ax_conn[conn_id]['vr']) % 8
         ax_conn[conn_id]['tx_ctl'].append(RR_frm(conn_id, False, False))
         ax_conn[conn_id]['N2'] = 1
         ax_conn[conn_id]['T1'] = 0
         set_t2(conn_id)
         print('I-Frame > ' + str(inp['data']))
 
+    print('')
+    for e in ax_conn[conn_id].keys():
+        print(str(e) + ' > ' + str(ax_conn[conn_id][e]))
+    print('~~~~~~~~~~~~~~~~~~~~~~~~~')
+    print('')
+
 
 def I_TX(conn_id, data=''):
     if ax_conn[conn_id]['stat'] != 'RR':    # TODO State of Receiver
         return False
     # TODO CHECK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    if ax_conn[conn_id]['vs'] == (ax_conn[conn_id]['nr'] + 7) % 8:
-        return False
+    # if ax_conn[conn_id]['vs'] == (ax_conn[conn_id]['nr'] + 7) % 8:
+    #     return False
     ax_conn[conn_id]['tx'].append(I_frm(conn_id, data))
     ax_conn[conn_id]['vs'] = (1 + ax_conn[conn_id]['vs']) % 8
     # TODO ????????????????????????? Check with big data
@@ -380,7 +389,7 @@ def I_TX(conn_id, data=''):
 
 
 def DM_TX(inp, pf_bit=True):    # !!!!!!!!!!! Dummy. !! Not Tested  !!!!!!!!!!!!!
-    DM_frm(inp, pf_bit)
+    tx_buffer.append(DM_frm(inp, pf_bit))
     # Will send if Station is Busy or can't request SABM or receive any other Pac as SABM, UI
     # Also will send to confirm a UI Pac if station is not connected
 
@@ -493,10 +502,12 @@ def DISC_frm(conn_id):
 def RR_frm(conn_id, pf_bit=False, cmd=False):
     # RR Frame
     pac = get_tx_packet_item(conn_id=conn_id)
-    pac['typ'] = ['RR', pf_bit, ax_conn[conn_id]['vs']]
+    pac['typ'] = ['RR', pf_bit, ax_conn[conn_id]['vr']]
     pac['cmd'] = cmd
-    print('######## Send RR')
+    print('')
+    print('######## Send RR >')
     print(pac)
+    print('')
     return pac
 
 #############################################################################
