@@ -422,8 +422,8 @@ def encode_ax25_frame(con_data):
         out_str += encode_pid_byte(pid)
     if c_byte[2]:                                       # Info Field
         for i in data_out:                              # TODO Max Paclen
-            out_str += format(ord(i.encode()), "x")
-
+            # out_str += format(ord(i.encode()), "x")
+            out_str += ''.join('{:02x}'.format(ord(i.encode()), "x"))
     monitor.debug_out(out_str)
     monitor.debug_out('############### ENC END ###############################')
     return out_str
