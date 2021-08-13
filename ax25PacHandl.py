@@ -101,7 +101,7 @@ def get_conn_item():
         'via': [],
         'tx': [],
         'tx_ctl': [],
-        'rx': [],       # Not needed till yet
+        # 'rx': [],       # Not needed till yet
         'rx_data': '',
         'stat': '',
         'vs': 0,
@@ -113,7 +113,6 @@ def get_conn_item():
         'T2': 0,
         'T3': 0.0,
         'N2': 1,
-        'max_frame_c': 1
 
     }
 
@@ -134,8 +133,6 @@ def get_tx_packet_item(inp=None, conn_id=None):
             'typ': [],                  # ['SABM', True, 0],   # Type, P/F, N(R), N(S)
             'cmd': False,
             'pid': 6,
-            'nr': 0,
-            'ns': 0
 
         }
     elif conn_id:
@@ -147,8 +144,6 @@ def get_tx_packet_item(inp=None, conn_id=None):
             'typ': [],                 # ['SABM', True, 0],  # Type, P/F, N(R), N(S)
             'cmd': False,
             'pid': 6,
-            'nr': 0,
-            'ns': 0
 
         }
 
@@ -213,7 +208,7 @@ def handle_rx_fm_conn(conn_id, inp):
     print('IN> ' + str(inp['FROM']) + ' ' + str(inp['TO']) + ' ' + str(inp['via']) + ' ' + str(inp['ctl']))
     #################################################
     # DEBUG !!   ?? Alle Pakete speichern ??
-    ax_conn[conn_id]['rx'].append(inp)
+    # ax_conn[conn_id]['rx'].append(inp)
     #################################################
     if inp['ctl']['hex'] == 0x73:                   # UA p/f True
         UA_RX(conn_id)
@@ -315,42 +310,39 @@ def SABM_RX(conn_id, inp):
 
 
 def confirm_I_Frames(conn_id, inp):
-    # conf_vs = []
-    '''
-    ######################################################################
-    # Confirm multiple Frames
-    # TODO Testing with multiple Frames
-    # TODO Debugging !!!
-    if ax_conn[conn_id]['vs'] > inp['ctl']['nr']:
-        for i in list(range(inp['ctl']['nr'], 8)):
-            conf_vs.append(i)
-        for i in list(range(0, (ax_conn[conn_id]['vs']))):
-            conf_vs.append(i)
-    elif inp['ctl']['nr'] > ax_conn[conn_id]['vs']:
-        for i in list(range(ax_conn[conn_id]['vs'], (inp['ctl']['nr']))):
-            conf_vs.append(i)
-    else:
-        conf_vs.append(inp['ctl']['nr'])
-    ######################################################################
-    '''
-    if ax_conn[conn_id]['noAck']:
-        tmp_ack = ax_conn[conn_id]['noAck'][:ax_conn[conn_id]['noAck'].index(inp['ctl']['nr'] - 1) + 1]
+    #####################################################################################
+    # Python is fucking up with Arrays in For Loop. It jumps over Elements. Why ??
+    # ??? Because of Threading and global Vars ???
+    no_ack = ax_conn[conn_id]['noAck']
+    tx_buff = ax_conn[conn_id]['tx']
+    if no_ack:
+        ind_val = (inp['ctl']['nr'] - 1) % 8
+        if ind_val in no_ack:
+            ind = no_ack.index(ind_val) + 1
+            tmp_ack = no_ack[:ind]
 
-        print('### CONF inp > ' + str(inp['ctl']['nr']))
-        print('### CONF ax_conn > ' + str(ax_conn[conn_id]['vr']))
-        ax_conn[conn_id]['vs'] = inp['ctl']['nr']
-        ###########################################
-        # Delete confirmed I Frames from TX- Buffer
-        tmp = ax_conn[conn_id]['tx']
-        print('### conf. VS > ' + str(ax_conn[conn_id]['noAck']))
-        print('### CONF TX Buffer > ' + str(ax_conn[conn_id]['tx']))
-        # Delete all VS < VR
-        for el in tmp:
-            if el['typ'][0] == 'I' and (el['typ'][3] in tmp_ack):
-                ax_conn[conn_id]['noAck'].remove(el['typ'][3])
-                ax_conn[conn_id]['tx'].remove(el)
-                ax_conn[conn_id]['max_frame_c'] -= 1
-        ###########################################
+            print('### conf. VS > ' + str(no_ack))
+            print('### conf. tmp_Ack > ' + str(tmp_ack))
+            print('### CONF TX Buffer > ' + str(tx_buff))
+            #############################################
+            # Looking for unconfirmed I Frames in Buffer
+            rmv_list = []
+            for el in tx_buff:
+                if el['typ'][0] == 'I' and el['typ'][3] in tmp_ack:
+                    print('### conf. Remove nach I > ' + str(el['typ'][3]))
+                    rmv_list.append(el)                 # Other solution Python don't set in Fuck up Mode
+            #############################################
+            print('### CONF RMV ax_conn[conn_id][tx] before > ' + str(ax_conn[conn_id]['tx']))
+            #############################################
+            # Delete confirmed I Frames from TX- Buffer
+            # Delete all VS < VR
+            for el in rmv_list:
+                tx_buff.remove(el)
+                no_ack.remove(el['typ'][3])
+            ax_conn[conn_id]['tx'] = tx_buff
+            ax_conn[conn_id]['noAck'] = no_ack
+            ax_conn[conn_id]['vs'] = inp['ctl']['nr']
+            print('### CONF RMV ax_conn[conn_id][tx] after > ' + str(ax_conn[conn_id]['tx']))
     ax_conn[conn_id]['N2'] = 1
 
 
@@ -407,16 +399,15 @@ def I_RX(conn_id, inp):
 
 
 def I_TX(conn_id, data=''):
-    if ax_conn[conn_id]['stat'] != 'RR':    # TODO State of Receiver
+    if ax_conn[conn_id]['stat'] != 'RR':
         return False
-    # TODO CHECK !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if len(ax_conn[conn_id]['noAck']) > 7:
         return False
     ax_conn[conn_id]['tx'].append(I_frm(conn_id, data))
-    ax_conn[conn_id]['noAck'].append(ax_conn[conn_id]['vs'])
     ax_conn[conn_id]['vs'] = (1 + ax_conn[conn_id]['vs']) % 8
-    ax_conn[conn_id]['T1'] = 0
+    # ax_conn[conn_id]['T1'] = 0
     ax_conn[conn_id]['N2'] = 1
+    set_t2(conn_id)
     return True
 
 
@@ -435,17 +426,16 @@ def DM_RX(conn_id):
 def UA_RX(conn_id):
     ax_conn[conn_id]['N2'] = 1
     ax_conn[conn_id]['T1'] = 0
-    # set_t1(conn_id)
     ax_conn[conn_id]['vs'], ax_conn[conn_id]['vr'] = 0, 0
     if ax_conn[conn_id]['stat'] == 'SABM':
         ax_conn[conn_id]['tx'].pop(0)           # Not lucky with that solution TODO
         ax_conn[conn_id]['stat'] = 'RR'
         monitor.debug_out('#### Connection established ..... ######')
-        monitor.debug_out('ax_conn[id][tx]> ' + str(ax_conn[conn_id]['tx']))
+        # monitor.debug_out('ax_conn[id][tx]> ' + str(ax_conn[conn_id]['tx']))
         print('#### Connection established ..... ######')
     elif ax_conn[conn_id]['stat'] == 'DISC':
         monitor.debug_out('#### Disc confirmed ..... ######')
-        monitor.debug_out('ax_conn[id][tx]> ' + str(ax_conn[conn_id]['tx']))
+        # monitor.debug_out('ax_conn[id][tx]> ' + str(ax_conn[conn_id]['tx']))
         print('#### Disc confirmed ..... ######')
         del ax_conn[conn_id]
 
@@ -457,11 +447,9 @@ def DISC_TX(conn_id):
     print('#### DISCO Send to ' + ax_conn[conn_id]['dest'][0])
     print(conn_id)
     # Answering DISC
-    # tx_buffer.append(DISC_frm(conn_id))
     if ax_conn[conn_id]['stat'] == 'RR':
         ax_conn[conn_id]['stat'] = 'DISC'
         ax_conn[conn_id]['N2'] = 1
-        # set_t1(conn_id)
         ax_conn[conn_id]['tx'] = [DISC_frm(conn_id)]
     elif ax_conn[conn_id]['stat'] == 'SABM':
         tx_buffer.append(DISC_frm(conn_id))
@@ -492,7 +480,7 @@ def setup_new_conn(conn_id, inp_data):
     ax_conn[conn_id]['via'].reverse()
     #######################################
     # Debug !!!!
-    ax_conn[conn_id]['rx'] = [inp_data]
+    # ax_conn[conn_id]['rx'] = [inp_data]
     #######################################
 
 #######################################################################
@@ -509,7 +497,12 @@ def UA_frm(inp):
 def I_frm(conn_id, data=''):
     pac = get_tx_packet_item(conn_id=conn_id)
     # VR will be set again just before sending !!!
-    pac['typ'] = ['I', False, ax_conn[conn_id]['vr'], ax_conn[conn_id]['vs']]
+    if ax_conn[conn_id]['noAck']:
+        vs = (ax_conn[conn_id]['noAck'][-1] + 1) % 8
+    else:
+        vs = ax_conn[conn_id]['vs']
+    ax_conn[conn_id]['noAck'].append(vs)
+    pac['typ'] = ['I', False, ax_conn[conn_id]['vr'], vs]
     pac['cmd'] = True
     pac['pid'] = 6
     pac['out'] = data
@@ -585,80 +578,73 @@ def handle_tx():
         if ax_conn[conn_id]['Ack']:
             tx_buffer.append(RR_frm(conn_id, False, False))
             ax_conn[conn_id]['Ack'] = False
+        ax_conn[conn_id]['REJ'] = False
 
-    for conn_id in ax_conn.keys():
-        if (time.time() > ax_conn[conn_id]['T2'] or ax_conn[conn_id]['T2'] == 0)\
-                and (time.time() > timer_T0 or timer_T0 == 0):
-            if pac_c > ax25MaxBufferTX:
-                send_Ack(conn_id)
-                break
+    #############################################
+    # Check T0
+    if time.time() > timer_T0 or timer_T0 == 0:
+        for conn_id in ax_conn.keys():
             #############################################
-            # CTL Frames ( Not T1 controlled ) just T2
-            tx_ctl = ax_conn[conn_id]['tx_ctl']
-            for el in tx_ctl:
-                if pac_c > ax25MaxBufferTX:
-                    send_Ack(conn_id)
-                    break
-                tx_buffer.append(el)
-                ax_conn[conn_id]['tx_ctl'].pop(0)
-                pac_c += 1
-            #############################################
-            snd_tr = False
-            tmp = ax_conn[conn_id]['tx']
-            for el in tmp:
+            # Check T2
+            if time.time() > ax_conn[conn_id]['T2'] or ax_conn[conn_id]['T2'] == 0:
                 if pac_c > ax25MaxBufferTX:
                     send_Ack(conn_id)
                     break
                 #############################################
-                # Timeout and N2 out
-                if ax_conn[conn_id]['N2'] > parm_N2 and time.time() > ax_conn[conn_id]['T1'] != 0:
-                    # DISC ???? TODO Testing
-                    monitor.debug_out('#### Connection failure ..... ######' + conn_id)
-                    print('#### Connection failure ..... ######' + conn_id)
-                    disc_keys.append(conn_id)
-                    break
-                # if el is RR Frame
-                # elif .......
-                #############################################
-                # I Frames - T1 controlled and N2 counted
-                if time.time() > ax_conn[conn_id]['T1'] or ax_conn[conn_id]['T1'] == 0:
-                    if el['typ'][0] == 'I' \
-                            and ax_conn[conn_id]['max_frame_c'] < ax25MaxFrame \
-                            and max_i_frame_c_f_all_conns < parm_max_i_frame:
-                        el['typ'][2] = ax_conn[conn_id]['vr']
-                        ax_conn[conn_id]['max_frame_c'] += 1
-                        max_i_frame_c_f_all_conns += 1
-                        tx_buffer.append(el)
-                        snd_tr = True
-                        ax_conn[conn_id]['Ack'] = False
-                    else:
-                        tx_buffer.append(el)
-                        snd_tr = True
+                # CTL Frames ( Not T1 controlled ) just T2
+                tx_ctl = ax_conn[conn_id]['tx_ctl']
+                for el in tx_ctl:
+                    if pac_c > ax25MaxBufferTX:
+                        send_Ack(conn_id)
+                        break
+                    tx_buffer.append(el)
+                    ax_conn[conn_id]['tx_ctl'].pop(0)
                     pac_c += 1
+                #############################################
+                snd_tr = False
+                tmp = ax_conn[conn_id]['tx']
+                for el in tmp:
+                    if pac_c > ax25MaxBufferTX:
+                        send_Ack(conn_id)
+                        break
+                    #############################################
+                    # Timeout and N2 out
+                    if ax_conn[conn_id]['N2'] > parm_N2 and time.time() > ax_conn[conn_id]['T1'] != 0:
+                        # DISC ???? TODO Testing
+                        monitor.debug_out('#### Connection failure ..... ######' + conn_id)
+                        print('#### Connection failure ..... ######' + conn_id)
+                        disc_keys.append(conn_id)
+                        break
+                    #############################################
+                    # I Frames - T1 controlled and N2 counted
+                    if time.time() > ax_conn[conn_id]['T1'] or ax_conn[conn_id]['T1'] == 0:
+                        if el['typ'][0] == 'I' and max_i_frame_c_f_all_conns < parm_max_i_frame:
+                            el['typ'][2] = ax_conn[conn_id]['vr']
+                            max_i_frame_c_f_all_conns += 1
+                            tx_buffer.append(el)
+                            snd_tr = True
+                            ax_conn[conn_id]['Ack'] = False
+                        else:
+                            tx_buffer.append(el)
+                            snd_tr = True
+                        pac_c += 1
 
-                ######################################################
-                # On SABM Stat just send first element from TX-Buffer.
-                if ax_conn[conn_id]['stat'] in ['SABM', 'DISC']:
-                    break
-            send_Ack(conn_id)
-            # TODO Check !!
-            if snd_tr:
-                set_t1(conn_id)
-                set_t2(conn_id)
-                # ax_conn[conn_id]['T2'] = 0
-                ax_conn[conn_id]['N2'] += 1
-
+                    ######################################################
+                    # On SABM Stat just send first element from TX-Buffer.
+                    if ax_conn[conn_id]['stat'] in ['SABM', 'DISC']:
+                        break
+                send_Ack(conn_id)
+                # TODO Check !!
+                if snd_tr:
+                    set_t1(conn_id)
+                    set_t2(conn_id)
+                    # ax_conn[conn_id]['T2'] = 0
+                    ax_conn[conn_id]['N2'] += 1
     ######################################################
     # Send Discs
     for dk in disc_keys:
         DISC_TX(dk)
 
-
-        '''
-        for el in tmp:
-            tx_buffer.append(el)
-            ax_conn[ke]['tx'] = ax_conn[ke]['tx'][1:]
-        '''
 #############################################################################
 
 
@@ -738,6 +724,7 @@ else:
                       "C = conncet\n\r"
                       "D = Disconnect all Stations\n\r"
                       "S = Send Packet\n\r"
+                      "SL= Send Packet Loop of 7 Pacs\n\r"
                       "\n\r> ")
             if i.upper() == 'Q':
                 disc_all_stations()
@@ -755,6 +742,10 @@ else:
                 inp2 = input('> ')
                 inp2 += '\r'
                 I_TX(list(ax_conn.keys())[0], inp2)
+            elif i.upper() == 'SL':
+                for c in list(range(7)):
+                    I_TX(list(ax_conn.keys())[0], (str(c) + '\r'))
+                print('Ok ..')
             elif i.upper() == 'D':
                 print('############  Disc send to : ' + str(ax_conn.keys()))
                 disc_all_stations()
