@@ -724,6 +724,13 @@ else:
                     print('Type in Number !!')
             elif i.upper() == 'C':
                 SABM_TX()
+            elif i.isdigit():
+                test_snd_packet = int(i)
+                send_tr = True
+                while test_snd_packet != -1:
+                    time.sleep(0.01)
+                send_tr = False
+                print("Ok ..")
             elif not sel_station:
                 if list(ax_conn.keys()):
                     sel_station = list(ax_conn.keys())[0]
@@ -793,13 +800,7 @@ else:
                 for k in ax_conn.keys():
                     ax_conn[k]['rx'] = []
                 print('Ok ...')
-            elif i.isdigit():
-                test_snd_packet = int(i)
-                send_tr = True
-                while test_snd_packet != -1:
-                    time.sleep(0.01)
-                send_tr = False
-                print("Ok ..")
+
 
     except KeyboardInterrupt:
         disc_all_stations()

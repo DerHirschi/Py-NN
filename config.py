@@ -3,10 +3,7 @@ import monitor
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
-MyCallStr1 = 'MD3SAW-11'            # Call for outgoing connects
-MyCallStr2 = ['MD3SAW-8', 'MD3SAW-9', 'MD3SAW-10']          # Calls for requests
-MyCall = ax.get_ssid(MyCallStr1)
-Calls = [MyCallStr1] + MyCallStr2
+
 # TESTING and DEBUGGING
 debug = monitor.debug
 test_snd_packet = -1
@@ -40,7 +37,10 @@ ax_MyCalls = {
         'PROMPT': 'MD3SAW-2> ',
     }
 }
-
+MyCallStr1 = 'MD3SAW-11'                                    # Call for outgoing connects
+MyCallStr2 = ['MD3SAW-8', 'MD3SAW-9', 'MD3SAW-10']          # Calls for requests
+MyCall = ax.get_ssid(MyCallStr1)
+Calls = [MyCallStr1] + MyCallStr2
 ################################
 # TEST DATA
 ax_test_pac = [{
@@ -90,3 +90,11 @@ pid
 6 = 11110000 Kein Layer 3 implementiert.
 7 = 11111111 Fluchtsymbol, das nächste Byte enthält weitere Layer 3 Protokoll Informationen.
 '''
+
+
+class DefaultParam(object):
+    pass
+
+
+class StationParam(object):
+    pass
