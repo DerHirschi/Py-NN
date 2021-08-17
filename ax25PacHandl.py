@@ -65,6 +65,7 @@ pid
 debug = monitor.debug
 test_snd_packet = -1
 # Globals
+ax25PacLen = 128
 ax25MaxBufferTX = 20                    # Max Frames to send from Buffer
 ax25MaxFrame = 3                        # Max (I) Frames
 ax25TXD = 50                            # TX Delay for RTT Calculation
@@ -95,14 +96,14 @@ def get_conn_item():
         'call': [MyCall[0], MyCall[1]],
         'dest': ['', 0],
         'via': [],
-        'tx': [],
-        'tx_ctl': [],
-        # 'rx': [],       # Not needed till yet
-        'rx_data': '',
-        'stat': '',
+        'tx': [],               # TX Buffer (T1)
+        'tx_ctl': [],           # CTL TX Buffer (T2)
+        'rx_data': '',          # RX Data Buffer
+        'tx_data': '',          # TX Data Buffer
+        'stat': '',             # State ( SABM, RR, DISC )
         'vs': 0,
         'vr': 0,
-        'noAck': [],
+        'noAck': [],            # No Ack Packets
         'Ack': [False, False, False],    # Send on next time, PF-Bit, CMD
         'REJ': [False, False],
         'T1': 0,
@@ -161,6 +162,23 @@ def set_t2(conn_id):
 def set_t0():
     global timer_T0
     timer_T0 = parm_T0 / 100 + time.time()
+
+
+def tx_data2tx_buffer(conn_id):
+    data = ax_conn[conn_id]['tx_data']
+    if data:
+        free_txbuff = 7 - len(ax_conn[conn_id]['noAck'])
+        # pacs = [data[i:i + ax25PacLen] for i in range(0, len(data), ax25PacLen)]
+        for i in range(free_txbuff):
+            if data:
+                if I_TX(conn_id, data[:ax25PacLen]):
+                    data = data[ax25PacLen:]
+                else:
+                    break
+            else:
+                break
+
+        ax_conn[conn_id]['tx_data'] = data
 
 
 def handle_rx(rx_inp):
@@ -401,7 +419,7 @@ def I_RX(conn_id, rx_inp):
 def I_TX(conn_id, data=''):
     if ax_conn[conn_id]['stat'] != 'RR':
         return False
-    if len(ax_conn[conn_id]['noAck']) > 7:
+    if len(ax_conn[conn_id]['noAck']) >= 7:
         return False
     ax_conn[conn_id]['tx'].append(I_frm(conn_id, data))
     ax_conn[conn_id]['vs'] = (1 + ax_conn[conn_id]['vs']) % 8
@@ -578,15 +596,15 @@ def handle_tx():
     pac_c = 0
 
     def send_Ack(id_in):
-        ######################################################
-        # Send REJ
-        if ax_conn[id_in]['REJ'][0]:
-            REJ_TX(id_in)
-        ######################################################
-        # Send Ack if not sendet with I Frame
-        if ax_conn[id_in]['Ack'][0]:
-            tx_buffer.append(RR_frm(id_in))
-            # ax_conn[id_in]['Ack'] = [False, False, False]
+        if ax_conn[id_in]['stat'] == 'RR':
+            ######################################################
+            # Send REJ
+            if ax_conn[id_in]['REJ'][0]:
+                REJ_TX(id_in)
+            ######################################################
+            # Send Ack if not sendet with I Frame
+            if ax_conn[id_in]['Ack'][0]:
+                tx_buffer.append(RR_frm(id_in))
 
     #############################################
     # Check T0
@@ -597,13 +615,17 @@ def handle_tx():
             if time.time() > ax_conn[conn_id]['T2'] or ax_conn[conn_id]['T2'] == 0:
                 if pac_c > ax25MaxBufferTX:
                     send_Ack(conn_id)
+                    set_t2(conn_id)
                     break
-                #############################################
+                ####################################################################
+                tx_data2tx_buffer(conn_id)          # Fill free TX "Slots" with data
+                ####################################################################
                 # CTL Frames ( Not T1 controlled ) just T2
                 tx_ctl = ax_conn[conn_id]['tx_ctl']
                 for el in tx_ctl:
                     if pac_c > ax25MaxBufferTX:
                         send_Ack(conn_id)
+                        set_t2(conn_id)
                         break
                     tx_buffer.append(el)
                     ax_conn[conn_id]['tx_ctl'] = ax_conn[conn_id]['tx_ctl'][1:]
@@ -617,6 +639,7 @@ def handle_tx():
                 for el in tmp:
                     if pac_c > ax25MaxBufferTX:
                         send_Ack(conn_id)
+                        set_t2(conn_id)
                         break
                     #############################################
                     # Timeout and N2 out
@@ -627,6 +650,7 @@ def handle_tx():
                         ax_conn[conn_id]['Ack'] = [False, False, False]
                         ax_conn[conn_id]['REJ'] = [False, False]
                         disc_keys.append(conn_id)
+                        snd_tr = True
                         break
                     #############################################
                     # I Frames - T1 controlled and N2 counted
@@ -646,6 +670,7 @@ def handle_tx():
                     ######################################################
                     # On SABM Stat just send first element from TX-Buffer.
                     if ax_conn[conn_id]['stat'] in ['SABM', 'DISC']:
+                        snd_tr = True
                         break
                 send_Ack(conn_id)
                 if snd_tr:
@@ -726,10 +751,13 @@ else:
         th = threading.Thread(target=read_kiss).start()
         while not p_end:
             print("_______________________________________________")
-            print('')
+            print('Selected Connection > ' + sel_station)
+            print("_______________________________________________")
+
             i = input("Q  = Quit\n\r"
                       "0-5 = Send Packet\n\r"
                       "T  = Fill TX Buffer with Testdata\n\r"
+                      "TB = Test Beacon (UI Packet)\n\r"
                       "P  = Print ConnStation Details\n\r"
                       "L  = Print Connected Stations\n\r"
                       "B  = Print TX-Buffer\n\r"
@@ -749,11 +777,9 @@ else:
             else:
                 os.system('clear')
 
-            if i.upper() == 'T':
-                tx_buffer = ax_test_pac
-                print("OK ..")
-            elif i.upper() == 'C':
-                SABM_TX()
+            if i.upper() == 'D':
+                print('############  Disc send to : ' + str(ax_conn.keys()))
+                disc_all_stations()
             elif i.upper() == 'ST':
                 c = 1
                 print('')
@@ -771,6 +797,21 @@ else:
                 else:
                     os.system('clear')
                     print('Type in Number !!')
+            elif i.upper() == 'C':
+                SABM_TX()
+            elif not sel_station:
+                if list(ax_conn.keys()):
+                    sel_station = list(ax_conn.keys())[0]
+                else:
+                    print('Please connect to a Station first !')
+            #################################################################
+            # Station Actions
+            #################################################################
+
+            elif i.upper() == 'TB':     # Test Beacon
+                tx_buffer = ax_test_pac
+                print("OK ..")
+
             elif i.upper() == 'S':
                 inp2 = input('> ')
                 inp2 += '\r'
@@ -779,9 +820,7 @@ else:
                 for c in list(range(7)):
                     I_TX(sel_station, (str(c) + '\r'))
                 print('Ok ..')
-            elif i.upper() == 'D':
-                print('############  Disc send to : ' + str(ax_conn.keys()))
-                disc_all_stations()
+
             elif i.upper() == 'DS':
                 print('############  Disc send to : ' + str(sel_station))
                 DISC_TX(sel_station)
@@ -801,10 +840,19 @@ else:
                 print('')
 
             elif i.upper() == 'T':
-                for k in ax_conn.keys():
-                    print(str(k) + ' > ' + str(ax_conn[k]['tx']))
+                inp = input('How many Packets should be send ? > ')
+                if inp.isdigit():
+                    test_data = ''
+                    for c in range(int(inp)):
+                        for i in range(ax25PacLen):
+                            test_data += str(c % 10)
+
+                    print(str(sel_station) + ' -- send > ' + str(len(test_data)) + ' Bytes !!!!')
+                    ax_conn[sel_station]['tx_data'] += test_data
                     print('~~~~~~~~~~~~~~~~~~~~~~~~~')
                     print('')
+                else:
+                    print('Please enter a DIGIT ..!')
             elif i.upper() == 'B':
                 for k in ax_conn.keys():
                     print(str(k) + ' tx_ctl > ' + str(ax_conn[k]['tx_ctl']))
@@ -812,11 +860,9 @@ else:
                     print('~~~~~~~~~~~~~~~~~~~~~~~~~')
                     print('')
             elif i.upper() == 'R':
-                for k in ax_conn.keys():
-                    for d in ax_conn[k]['rx']:
-                        print(str(k) + ' RX > ' + str(d))
-                    print('~~~~~~~~~~~~~~~~~~~~~~~~~')
-                    print('')
+                print(str(sel_station) + ' RX > \r\n' + ax_conn[sel_station]['rx_data'])
+                print('~~~~~~~~~~~~~~~~~~~~~~~~~')
+                print('')
                 print('Ok ...')
             elif i.upper() == 'RD':
                 for k in ax_conn.keys():
