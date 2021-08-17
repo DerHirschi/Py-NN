@@ -4,10 +4,6 @@ import monitor
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
 
-# TESTING and DEBUGGING
-debug = monitor.debug
-test_snd_packet = -1
-# rx_buffer = {}
 
 # AX25 Parameters
 ax25MaxBufferTX = 20                    # Max Frames to send from Buffer
@@ -93,8 +89,31 @@ pid
 
 
 class DefaultParam(object):
-    pass
+    # AX25 Parameters
+    ax25MaxBufferTX = 20  # Max Frames to send from Buffer
+    ax25PacLen = 128  # Max Pac len
+    ax25MaxFrame = 3  # Max (I) Frames
+    ax25TXD = 50  # TX Delay for RTT Calculation
+    parm_max_i_frame = 14  # Max I-Frame (all connections) per Cycle
+    parm_N2 = 5  # Max Try    Default 20
+    parm_baud = 1200  # Baud for RTT Calculation
+    parm_T2 = 4000 / (parm_baud / 100)  # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    parm_T0 = 600  # T0 (Response Delay Timer) activated if data come in to prev resp. to early
+    # parm_IRTT = 550                       # Initial-Round-Trip-Time
+    parm_IRTT = (parm_T2 + ax25TXD) * 2  # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
 
 
-class StationParam(object):
+'''
+StationParam =
+    call = 'MD3SAW'
+    ssid = 11            # -1 = all
+    ctext = 'MD3SAW-1\r\n' \
+            'Diese Station dient nur zu Testzwecken !\r\n' \
+            'This Station is just for Testing purposes !\r\n'
+    prompt = 'MD3SAW-1> '
+'''
+
+if __name__ == '__main__':
+    # a = StationParam()
+    # print(a.prompt)
     pass

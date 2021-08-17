@@ -6,6 +6,11 @@ import serial
 from config import *
 
 
+# TESTING and DEBUGGING
+debug = monitor.debug
+test_snd_packet = -1
+# rx_buffer = {}
+
 # Globals
 timer_T0 = 0
 tx_buffer = []
@@ -612,6 +617,9 @@ def handle_tx():
 
 
 def read_kiss():
+    #############################################################################
+    # MAIN LOOP  / Thread
+    #############################################################################
     global test_snd_packet, tx_buffer
     pack = b''
     ser = serial.Serial(ser_port, ser_baud, timeout=1)
