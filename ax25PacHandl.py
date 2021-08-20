@@ -122,9 +122,6 @@ def handle_rx_fm_conn(conn_id, rx_inp):
     print('Pac fm connection incoming... ' + conn_id)
     print('IN> ' + str(rx_inp['FROM']) + ' ' + str(rx_inp['TO']) + ' ' + str(rx_inp['via']) + ' ' + str(rx_inp['ctl']))
     #################################################
-    # DEBUG !!   ?? Alle Pakete speichern ??
-    # ax_conn[conn_id]['rx'].append(inp)
-    #################################################
     if rx_inp['ctl']['hex'] == 0x73:                   # UA p/f True
         UA_RX(conn_id)
     #################################################
@@ -140,15 +137,9 @@ def handle_rx_fm_conn(conn_id, rx_inp):
     elif rx_inp['ctl']['flag'] == 'REJ':                # REJ
         REJ_RX(conn_id, rx_inp)
 
-    # monitor.debug_out(ax_conn[conn_id])
     monitor.debug_out('#### Conn Data In END ######')
     monitor.debug_out('')
     print('~~~~~~RX IN~~~~~~~~~~~~~~')
-    '''
-    for e in ax_conn[conn_id].keys():
-        print(str(e) + ' > ' + str(ax_conn[conn_id][e]))
-    print('~~~~~~RX IN~~~~~~~~~~~~~~')
-    '''
     print('')
 
 
@@ -236,17 +227,15 @@ def confirm_I_Frames(conn_id, rx_inp):
         if ind_val in no_ack:
             ind = no_ack.index(ind_val) + 1
             tmp_ack = no_ack[:ind]
-
             print('### conf. VS > ' + str(no_ack))
             print('### conf. tmp_Ack > ' + str(tmp_ack))
-            # print('### CONF TX Buffer > ' + str(tx_buff))
             #############################################
             # Looking for unconfirmed I Frames in Buffer
             rmv_list = []
             for el in tmp_tx_buff:
                 if el['typ'][0] == 'I' and el['typ'][3] in tmp_ack:
                     # print('### conf. Remove nach I > ' + str(el['typ'][3]))
-                    rmv_list.append(el)                 # Other solution Python don't set in Fuck up Mode
+                    rmv_list.append(el)
             #############################################
             # Delete confirmed I Frames from TX- Buffer
             # Delete all VS < VR
@@ -294,17 +283,9 @@ def REJ_RX(conn_id, rx_inp):
 
 
 def REJ_TX(conn_id):
-    # if ax_conn[conn_id].vr in ax_conn[conn_id].noAck:
-    # tx_buffer.append(RR_frm(conn_id, False, False))
-
-    ####################################
-    # TESTING !!!!!!!!!!!!!!!!!!!!!!!!!!
-    # ax_conn[conn_id].rej[1] = True
-    ####################################
-
     ax_conn[conn_id].tx_ctl.append(REJ_frm(conn_id, ax_conn[conn_id].rej[1], False))
     ax_conn[conn_id].rej = [False, False]
-    # print('###### REJ_TX > ' + str(ax_conn[conn_id].tx_ctl))
+    print('###### REJ_TX > ' + str(conn_id))
 
 
 def I_RX(conn_id, rx_inp):
@@ -416,25 +397,15 @@ def DISC_RX(conn_id, rx_inp):
 
 
 def setup_new_conn(conn_id, rx_inp, mycall):
-    # ax_conn[conn_id] = get_conn_item(mycall)
-    # ax_conn[conn_id] = Stations[mycall]()
     tmp = Stations[mycall]()
     from_call, to_call = rx_inp['FROM'], rx_inp['TO']
-    # ax_conn[conn_id].dest = [from_call[0], from_call[1]]
     tmp.dest = [from_call[0], from_call[1]]
     # TODO on SSID 0 allow multiple connections ( call SSID +=1 )
-    # ax_conn[conn_id]['call'] = [to_call[0], to_call[1]]
     via = []
-    '''
-    for el in rx_inp['via']:
-        ax_conn[conn_id]['via'].append([el[0], el[1], False])
-    ax_conn[conn_id]['via'].reverse()
-    '''
     for el in rx_inp['via']:
         via.append([el[0], el[1], False])
     via.reverse()
     tmp.via = via
-
     ax_conn[conn_id] = tmp
 
 
@@ -492,9 +463,6 @@ def RR_frm(conn_id):
     print(pac)
     print('')
     print('~~~~~~Send RR~~~~~~~~~~~~')
-    # for e in ax_conn[conn_id].keys():
-    #     print(str(e) + ' > ' + str(ax_conn[conn_id][e]))
-    # print('~~~~~~Send RR~~~~~~~~~~~~')
     print('')
     ax_conn[conn_id].ack = [False, False, False]
     return pac
@@ -567,10 +535,10 @@ def handle_tx():
                 #############################################
                 snd_tr = False
                 ind = 0
-                tmp = ax_conn[conn_id].tx
-                n2 = ax_conn[conn_id].n2
-                t1 = ax_conn[conn_id].t1
-                vr = ax_conn[conn_id].vr
+                tmp = list(ax_conn[conn_id].tx)
+                n2 = int(ax_conn[conn_id].n2)
+                t1 = float(ax_conn[conn_id].t1)
+                vr = int(ax_conn[conn_id].vr)
                 for el in tmp:
                     if pac_c > ax25MaxBufferTX:
                         send_Ack(conn_id)
@@ -590,15 +558,14 @@ def handle_tx():
                     #############################################
                     # I Frames - T1 controlled and N2 counted
                     if time.time() > t1 or t1 == 0:
+                        el = dict(el)
                         if el['typ'][0] == 'I' and max_i_frame_c_f_all_conns < parm_max_i_frame:
                             el['typ'][2] = vr
                             max_i_frame_c_f_all_conns += 1
                             #########################################
                             # Set P Bit = True if I-Frame is sendet
-                            # TODO !!! Python F*** up again. Why el=tm when tm=el ?? Is the Dict a global object ?
-                            # ##### tm = el
-                            # ##### tm['typ'][1] = True
-                            # ax_conn[conn_id].tx[ind] = tm
+                            tm = el['typ']
+                            ax_conn[conn_id].tx[ind]['typ'] = [tm[0], True, tm[2], tm[3]]
                             #########################################
                             if not ax_conn[conn_id].ack[1]:
                                 ax_conn[conn_id].ack = [False, False, False]
