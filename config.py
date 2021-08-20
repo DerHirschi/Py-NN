@@ -55,7 +55,7 @@ class DefaultParam(AX25Connection):
         self.call = [self.call, self.ssid]
     #################################################################
     # Station Default Parameters / Also outgoing connections
-    call = 'MD2SAW'
+    call = 'MD3SAW'
     ssid = 0                                                        # 0 = all
     # call_str = ''                                                 # Will be set in conf_stations()
     ctext = 'Diese Station dient nur zu Testzwecken !\r\n' \
@@ -71,7 +71,7 @@ class DefaultParam(AX25Connection):
     parm_N2 = 5                         # Max Try   Default 20
     parm_baud = 1200                    # Baud for RTT Calculation
     parm_T2 = 4000 / (parm_baud / 100)  # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
-    parm_T0 = 600                       # T0 (Response Delay Timer) activated if data come in to prev resp. to early
+    parm_T0 = 400                       # T0 (Response Delay Timer) activated if data come in to prev resp. to early
     # parm_IRTT = 550                   # Initial-Round-Trip-Time
     parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
 
@@ -104,7 +104,7 @@ class MD4SAW(DefaultParam):
     ax25PacLen = 200
 
 
-stat_list = [MD3SAW10, MD3SAW11, MD3SAW11]
+stat_list = [DefaultParam, MD3SAW10, MD3SAW11, MD3SAW11]
 
 
 def conf_stations():
