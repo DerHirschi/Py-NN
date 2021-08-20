@@ -538,7 +538,7 @@ def handle_tx():
             #############################################
             # Check T2
             if time.time() > ax_conn[conn_id]['T2'] or ax_conn[conn_id]['T2'] == 0:
-                if pac_c > ax25MaxBufferTX:
+                if pac_c > parm_MaxBufferTX:
                     send_Ack(conn_id)
                     set_t2(conn_id)
                     break
@@ -548,7 +548,7 @@ def handle_tx():
                 # CTL Frames ( Not T1 controlled ) just T2
                 tx_ctl = ax_conn[conn_id]['tx_ctl']
                 for el in tx_ctl:
-                    if pac_c > ax25MaxBufferTX:
+                    if pac_c > parm_MaxBufferTX:
                         send_Ack(conn_id)
                         set_t2(conn_id)
                         break
@@ -562,7 +562,7 @@ def handle_tx():
                 t1 = ax_conn[conn_id]['T1']
                 vr = ax_conn[conn_id]['vr']
                 for el in tmp:
-                    if pac_c > ax25MaxBufferTX:
+                    if pac_c > parm_MaxBufferTX:
                         send_Ack(conn_id)
                         set_t2(conn_id)
                         break
@@ -646,7 +646,7 @@ def read_kiss():
         if tx_buffer:
             monitor.debug_out(ax_conn)
             c = 0
-            while tx_buffer and c < ax25MaxBufferTX:
+            while tx_buffer and c < parm_MaxBufferTX:
                 enc = ax.encode_ax25_frame(tx_buffer[0])
                 ax.send_kiss(ser, enc)
                 mon = ax.decode_ax25_frame(bytes.fromhex(enc))
