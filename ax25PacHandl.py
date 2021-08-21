@@ -1,11 +1,9 @@
-from config import *
-from remote_cli import handle_cli_inp, init_cli
 import os
 import time
 import serial
 import threading
 import monitor
-
+from config import *
 
 # TESTING and DEBUGGING
 debug = monitor.debug
@@ -247,6 +245,12 @@ def SABM_RX(conn_id, rx_inp, owncall):
     ax_conn[conn_id].t1 = 0
     ax_conn[conn_id].n2 = 1
     ax_conn[conn_id].tx = []
+    ax_conn[conn_id].tx_data = ''
+    ax_conn[conn_id].rx_data = ''
+    ax_conn[conn_id].noAck = []
+    ax_conn[conn_id].snd_RRt3 = False
+    ax_conn[conn_id].snd_rej = [False, False]
+    ax_conn[conn_id].ack = [False, False, False]
     # Set State to Receive Ready
     ax_conn[conn_id].stat = 'RR'
     # Answering Conn Req (UA).
@@ -265,13 +269,15 @@ def confirm_I_Frames(conn_id, rx_inp):
     # ??? Because of Threading and global Vars ???
     no_ack = list(ax_conn[conn_id].noAck)             # Wie waere es mit Modulo Restklassen ??
     tmp_tx_buff = list(ax_conn[conn_id].tx)
+    print('### conf. VS > ' + str(no_ack))
+
     if no_ack:
         ind_val = (rx_inp['ctl']['nr'] - 1) % 8
+        print('### conf. VS ind_val > ' + str(ind_val))
         if ind_val in no_ack:
             ind = no_ack.index(ind_val) + 1
             tmp_ack = no_ack[:ind]
-            print('### conf. VS > ' + str(no_ack))
-            print('### conf. tmp_Ack > ' + str(tmp_ack))
+            print('### conf. tmp_Ack > ' + str(ax_conn[conn_id].noAck))
             #############################################
             # Fetch unconfirmed I Frames in Buffer
             rmv_list = []
@@ -311,7 +317,7 @@ def RR_TX_T3(conn_id):
 def REJ_RX(conn_id, rx_inp):
     confirm_I_Frames(conn_id, rx_inp)
     # set_t2(conn_id)
-    ax_conn[conn_id].t1 = 0
+    # ax_conn[conn_id].t1 = 0
 
 
 def REJ_TX(conn_id):
@@ -345,7 +351,7 @@ def I_TX(conn_id, data=''):
     if len(ax_conn[conn_id].noAck) >= 7:
         return False
     ax_conn[conn_id].tx.append(I_frm(conn_id, data))
-    ax_conn[conn_id].vs = (1 + ax_conn[conn_id].vs) % 8
+    ax_conn[conn_id].vs = int((1 + ax_conn[conn_id].vs) % 8)
     ax_conn[conn_id].n2 = 1
     return True
 
@@ -359,6 +365,7 @@ def DM_TX(rx_inp, pf_bit=True):    # !!!!!!!!!!! Dummy. !! Not Tested  !!!!!!!!!
 def DM_RX(conn_id):
     if ax_conn[conn_id].stat == 'SABM':
         print('#### Called Station is Busy ..... ######')
+    ax_conn[conn_id] = None
     del ax_conn[conn_id]
 
 
@@ -375,6 +382,7 @@ def UA_RX(conn_id):
         monitor.debug_out('#### Disc confirmed ..... ######')
         # monitor.debug_out('ax_conn[id][tx]> ' + str(ax_conn[conn_id].tx))
         print('#### Disc confirmed ..... ######')
+        ax_conn[conn_id] = None
         del ax_conn[conn_id]
 
 
@@ -390,12 +398,15 @@ def DISC_TX(conn_id):
         ax_conn[conn_id].rej = [False, False]
         ax_conn[conn_id].stat = 'DISC'
         ax_conn[conn_id].n2 = 1
+        ax_conn[conn_id].t1 = 0
         ax_conn[conn_id].tx = [DISC_frm(conn_id)]
     elif ax_conn[conn_id].stat == 'SABM':
         tx_buffer.append(DISC_frm(conn_id))
+        ax_conn[conn_id] = None
         del ax_conn[conn_id]
     elif ax_conn[conn_id].stat == 'DISC' and ax_conn[conn_id].n2 > ax_conn[conn_id].ax25N2:
         tx_buffer.append(DISC_frm(conn_id))
+        ax_conn[conn_id] = None
         del ax_conn[conn_id]
 
 
@@ -408,6 +419,7 @@ def DISC_RX(conn_id, rx_inp):
     # Answering DISC
     if conn_id in ax_conn.keys():
         tx_buffer.append(UA_frm(rx_inp))       # UA_TX
+        ax_conn[conn_id] = None
         del ax_conn[conn_id]
     else:
         tx_buffer.append(DM_frm(rx_inp))
@@ -423,6 +435,16 @@ def setup_new_conn(conn_id, rx_inp, mycall):
         via.append([el[0], el[1], False])
     via.reverse()
     tmp.via = via
+    tmp.vs, tmp.vr = 0, 0
+    tmp.t1 = 0
+    tmp.n2 = 1
+    tmp.tx = []
+    tmp.tx_data = ''
+    tmp.rx_data = ''
+    tmp.noAck = []
+    tmp.snd_RRt3 = False
+    tmp.snd_rej = [False, False]
+    tmp.ack = [False, False, False]
     ax_conn[conn_id] = tmp
     set_t3(conn_id)
 
@@ -441,10 +463,13 @@ def UA_frm(rx_inp):
 def I_frm(conn_id, data=''):
     pac = get_tx_packet_item(conn_id=conn_id)
     # VR will be set again just before sending !!!
+    print('#### I-Frm vs > ' + str(ax_conn[conn_id].vs) )
+    print('#### I-Frm noAck > ' + str(ax_conn[conn_id].noAck) )
     if ax_conn[conn_id].noAck:
         vs = int((ax_conn[conn_id].noAck[-1] + 1) % 8)
     else:
         vs = int(ax_conn[conn_id].vs)
+    print('#### I-Frm vs calc  > ' + str(vs))
     ax_conn[conn_id].noAck.append(vs)
     pac['typ'] = ['I', False, ax_conn[conn_id].vr, vs]
     pac['cmd'] = True
@@ -637,7 +662,7 @@ def read_kiss():
                     monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
                 monitor.debug_out("_________________________________________________")
                 pack = b''
-        handle_cli_inp()    # CLI
+        # handle_cli_inp()    # CLI
         handle_tx()         # TX #############################################################
         if tx_buffer:
             monitor.debug_out(ax_conn)

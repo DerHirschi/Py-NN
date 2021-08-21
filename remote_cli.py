@@ -1,29 +1,32 @@
 from config import *
-from ax25PacHandl import ax_conn
 
 
-class CliNode:
-    pass
-
-
-class CliTest:
+def cli_node_init(conn_obj):
     pass
 
 
 def init_cli(conn_obj):
     if conn_obj.cli_type:
-        conn_obj.cli_inz = {
-            1: CliNode,
-            9: CliTest,
-        }[conn_obj.cli_type]()
+        {
+            1: cli_node_init,
+            9: cli_test_init,
+        }[conn_obj.cli_type](conn_obj)
+    else:
+        conn_obj.handle_cli_inp = handle_cli_inp_none
+
+#################################################
+# Test CLI
 
 
-def handle_cli_inp():
+def cli_test_init(conn_obj):
+    # Func
+    conn_obj.handle_cli_inp = handle_cli_inp_test
 
-    for obj in ax_conn:
-        if obj.cli_type:
-            if not obj.cli_inz:
-                {
-                    1: cli_node,
-                    9: cli_test,
-                }[obj.cli_type]()
+
+def handle_cli_inp_test(slf):
+    inp = slf.rx_data
+
+
+
+def handle_cli_inp_none(slf):
+    pass

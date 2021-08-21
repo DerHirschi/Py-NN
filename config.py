@@ -1,4 +1,5 @@
 import ax25enc as ax
+from remote_cli import init_cli
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
@@ -32,6 +33,7 @@ class AX25Connection(object):
 class DefaultParam(AX25Connection):
     def __init__(self):
         self.call = [self.call, self.ssid]
+        init_cli(self)
     #################################################################
     # Station Default Parameters / Also outgoing connections
     call = 'MD3SAW'
@@ -120,7 +122,6 @@ def conf_stations():
             Stations[call_str] = obj
             if obj.digi:
                 digi_calls.append([obj.call, obj.ssid])
-
         else:
             #########################################
             # If no SSID make all SSIDs connectable
