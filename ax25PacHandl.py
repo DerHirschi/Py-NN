@@ -52,7 +52,7 @@ def get_tx_packet_item(rx_inp=None, conn_id=None):
 
 
 def set_t1(conn_id):
-    ns = ax_conn[conn_id].n2
+    ns = int(ax_conn[conn_id].n2)
     srtt = float(ax_conn[conn_id].parm_IRTT)
     if ax_conn[conn_id].via:
         srtt = int((len(ax_conn[conn_id].via) * 2 + 1) * ax_conn[conn_id].parm_IRTT)
@@ -60,6 +60,7 @@ def set_t1(conn_id):
         ax_conn[conn_id].t1 = float(((srtt * (ns + 4)) / 100) + time.time())
     else:
         ax_conn[conn_id].t1 = float(((srtt * 3) / 100) + time.time())
+    print('#### T1 > ' + str(ax_conn[conn_id].t1 - time.time()))
 
 
 def set_t2(conn_id):
@@ -285,30 +286,25 @@ def confirm_I_Frames(conn_id, rx_inp):
 def RR_RX(conn_id, rx_inp):
     if ax_conn[conn_id].snd_RRt3 and rx_inp['ctl']['pf']:
         ax_conn[conn_id].snd_RRt3 = False
-        print('#### Recv T3 RR Requ.')
     # Confirm I Frames
     elif rx_inp['ctl']['cmd'] or rx_inp['ctl']['pf']:
         ax_conn[conn_id].ack = [True, rx_inp['ctl']['pf'], False]
     confirm_I_Frames(conn_id, rx_inp)
     ax_conn[conn_id].t1 = 0
-    # set_t2(conn_id)
 
 
 def RR_TX_T3(conn_id):
     # T3 is done ( Hold connection )
     ax_conn[conn_id].ack = [False, True, True]
-    # tx_buffer.append(RR_frm(conn_id))
     ax_conn[conn_id].tx_ctl = [RR_frm(conn_id)] + list(ax_conn[conn_id].tx_ctl)
     ax_conn[conn_id].snd_RRt3 = True
     set_t1(conn_id)
-    print('#### Send T3 RR Requ.')
 
 
 def REJ_RX(conn_id, rx_inp):
     confirm_I_Frames(conn_id, rx_inp)
     # set_t2(conn_id)
     ax_conn[conn_id].t1 = 0
-    print('###### REJ_RX > ' + str(rx_inp))
 
 
 def REJ_TX(conn_id):
@@ -322,10 +318,8 @@ def I_RX(conn_id, rx_inp):
         ax_conn[conn_id].rx_data += str(rx_inp['data'])
         ax_conn[conn_id].vr = (1 + ax_conn[conn_id].vr) % 8
         ax_conn[conn_id].t1 = 0
-        # set_t2(conn_id)
         confirm_I_Frames(conn_id, rx_inp)
         if rx_inp['ctl']['pf']:
-            # ax_conn[conn_id].ack = [False, ax_conn[conn_id].ack[1], False]
             ax_conn[conn_id].ack = [False, True, False]
             # Send single RR if P Bit is received
             tx_buffer.append(RR_frm(conn_id))
@@ -334,20 +328,8 @@ def I_RX(conn_id, rx_inp):
 
         print('###### I-Frame > ' + str(rx_inp['data']))
     else:
-        '''
-        ######################################
-        # If RX Send sequence is f** up
-        if (rx_inp['ctl']['ns']) == (ax_conn[conn_id].vr - 1) % 8:
-            # ax_conn[conn_id].ack = [True, ax_conn[conn_id].ack[1], False] # TODO Needed????
-            # P/F True to get back in sequence ?
-            ax_conn[conn_id].rej = [True, True]
-        else:
-            print('###### REJ_TX inp > ' + str(rx_inp))
-            ax_conn[conn_id].rej = [True, ax_conn[conn_id].rej[1]]
-        '''
         print('###### REJ_TX inp > ' + str(rx_inp))
         ax_conn[conn_id].rej = [True, rx_inp['ctl']['pf']]
-    # set_t2(conn_id)
 
 
 def I_TX(conn_id, data=''):
@@ -357,9 +339,7 @@ def I_TX(conn_id, data=''):
         return False
     ax_conn[conn_id].tx.append(I_frm(conn_id, data))
     ax_conn[conn_id].vs = (1 + ax_conn[conn_id].vs) % 8
-    # ax_conn[conn_id].t1 = 0
     ax_conn[conn_id].n2 = 1
-    # set_t2(conn_id)
     return True
 
 
@@ -383,7 +363,6 @@ def UA_RX(conn_id):
         ax_conn[conn_id].tx = ax_conn[conn_id].tx[1:]          # Not lucky with that solution TODO
         ax_conn[conn_id].stat = 'RR'
         monitor.debug_out('#### Connection established ..... ######')
-        # monitor.debug_out('ax_conn[id][tx]> ' + str(ax_conn[conn_id].tx))
         print('#### Connection established ..... ######')
     elif ax_conn[conn_id].stat == 'DISC':
         monitor.debug_out('#### Disc confirmed ..... ######')
@@ -490,12 +469,7 @@ def RR_frm(conn_id):
     pac = get_tx_packet_item(conn_id=conn_id)
     pac['typ'] = ['RR', ax_conn[conn_id].ack[1], ax_conn[conn_id].vr]
     pac['cmd'] = ax_conn[conn_id].ack[2]
-    print('')
     print('######## Send RR >')
-    print(pac)
-    print('')
-    print('~~~~~~Send RR~~~~~~~~~~~~')
-    print('')
     ax_conn[conn_id].ack = [False, False, False]
     return pac
 
@@ -506,7 +480,6 @@ def REJ_frm(conn_id, pf_bit=False, cmd=False):
     pac['typ'] = ['REJ', pf_bit, ax_conn[conn_id].vr]
     pac['cmd'] = cmd
     # ax_conn[conn_id].rej = [False, False]
-    print('')
     print('######## Send REJ >')
     print(pac)
     print('')
@@ -624,7 +597,6 @@ def handle_tx():
                     set_t1(conn_id)
                     set_t2(conn_id)
                     set_t3(conn_id)
-                    # ax_conn[conn_id].t2 = 0
                     ax_conn[conn_id].n2 = n2 + 1
 
     ######################################################
