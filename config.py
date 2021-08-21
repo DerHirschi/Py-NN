@@ -5,6 +5,7 @@ ser_baud = 9600
 # Globals
 Stations = {}
 digi_calls = []
+cli_calls = []
 
 
 class AX25Connection(object):
@@ -25,6 +26,7 @@ class AX25Connection(object):
     t2 = 0
     t3 = 0
     n2 = 1
+    cli_inz = None                  # CLI Object
 
 
 class DefaultParam(AX25Connection):
@@ -38,6 +40,7 @@ class DefaultParam(AX25Connection):
             'This Station is just for Testing purposes !\r'
     prompt = '> '
     digi = False                        # Digipeating
+    cli_type = None                     # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS)
     ###################################################################################################################
     # AX25 Parameters                   ###############################################################################
     ax25PacLen = 128                    # Max Pac len
@@ -69,6 +72,7 @@ class MD3SAW11(DefaultParam):
     call = 'MD3SAW'
     ssid = 11                                                       # 0 = all
     digi = True                                                     # Digipeating
+    cli_type = 9                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
     ctext = 'MD3SAW-11\r' \
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
@@ -116,6 +120,7 @@ def conf_stations():
             Stations[call_str] = obj
             if obj.digi:
                 digi_calls.append([obj.call, obj.ssid])
+
         else:
             #########################################
             # If no SSID make all SSIDs connectable

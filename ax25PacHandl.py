@@ -1,4 +1,5 @@
 from config import *
+from remote_cli import handle_cli_inp, init_cli
 import os
 import time
 import serial
@@ -159,6 +160,12 @@ def handle_rx_fm_conn(conn_id, rx_inp):
     #################################################
     elif rx_inp['ctl']['flag'] == 'REJ':                # REJ
         REJ_RX(conn_id, rx_inp)
+    #################################################
+    elif rx_inp['ctl']['flag'] == 'FRMR':               # FRMR  TODO
+        monitor.debug_out('#### FRMR Rec ###### ' + str(rx_inp))
+        monitor.debug_out('#### FRMR Rec ###### ' + str(rx_inp), True)
+        print('#### FRMR Rec ###### ' + str(rx_inp))
+        DISC_TX(conn_id)
 
     monitor.debug_out('#### Conn Data In END ######')
     monitor.debug_out('')
@@ -625,21 +632,13 @@ def read_kiss():
                 if dekiss_inp:
                     handle_rx(dekiss_inp)
                     timer_T0 = 0
-                    '''
-                    ############ TEST ##############
-                    if inp[0] in rx_buffer.keys():
-                        rx_buffer[inp[0]].append(inp[1])
-                    else:
-                        rx_buffer[inp[0]] = [inp[1]]
-                    ########## TEST ENDE ###########
-                    '''
                     monitor.debug_out('################ DEC END ##############################')
                 else:
                     monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
                 monitor.debug_out("_________________________________________________")
                 pack = b''
-
-        handle_tx()          # TX #############################################################
+        handle_cli_inp()    # CLI
+        handle_tx()         # TX #############################################################
         if tx_buffer:
             monitor.debug_out(ax_conn)
             c = 0
