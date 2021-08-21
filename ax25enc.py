@@ -381,6 +381,7 @@ def encode_ax25_frame(con_data):
         return format_hex(ret), pid_tr, info_f_tr
 
     def encode_pid_byte(pid_in=6):
+        # TODO Implement Rest for Digi and change ret to hex
         ret = ''.zfill(8)
         if pid_in == 1:
             ret = '00010000'
@@ -390,9 +391,13 @@ def encode_ax25_frame(con_data):
             ret = '11001100'
         elif pid_in == 4:
             ret = '11001101'
-        elif pid_in == 5:
+        ###################
+        # NET/ROM (L3/4)
+        elif pid_in == 5 or pid_in == 0xCF:
             ret = '11001111'
-        elif pid_in == 6:
+        ###################
+        # Text (NO L3)
+        elif pid_in == 6 or pid_in == 0xF0:
             ret = '11110000'
         elif pid_in == 7:
             ret = '11111111'
@@ -421,9 +426,13 @@ def encode_ax25_frame(con_data):
     if c_byte[1]:                                       # PID Byte
         out_str += encode_pid_byte(pid)
     if c_byte[2]:                                       # Info Field
-        for i in data_out:                              # TODO Max Paclen
-            # out_str += format(ord(i.encode()), "x")
-            out_str += ''.join('{:02x}'.format(ord(i.encode()), "x"))
+        if type(data_out) is str:
+            for i in data_out:
+                # out_str += format(ord(i.encode()), "x")
+                out_str += ''.join('{:02x}'.format(ord(i.encode()), "x"))
+        elif type(data_out) is bytearray:
+            # Digi
+            out_str += bytearray2hexstr(data_out)
     monitor.debug_out(out_str)
     monitor.debug_out('############### ENC END ###############################')
     return out_str

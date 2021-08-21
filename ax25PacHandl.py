@@ -4,7 +4,6 @@ from config import *
 # TESTING and DEBUGGING
 debug = monitor.debug
 test_snd_packet = -1
-# rx_buffer = {}
 
 # Globals
 timer_T0 = 0
@@ -20,13 +19,13 @@ ax_conn = {
 def get_tx_packet_item(rx_inp=None, conn_id=None):
     if rx_inp:
         via = []
-        tm = rx_inp['via']
+        tm = list(rx_inp['via'])
         tm.reverse()
         for el in tm:
             via.append([el[0], el[1], False])
         return {
-            'call': rx_inp['TO'],
-            'dest': rx_inp['FROM'],
+            'call': list(rx_inp['TO']),
+            'dest': list(rx_inp['FROM']),
             'via': via,
             'out': '',
             'typ': [],                  # ['SABM', True, 0],   # Type, P/F, N(R), N(S)
@@ -113,10 +112,17 @@ def handle_rx(rx_inp):
                 handle_rx_fm_conn(conn_id, rx_inp[1])
             else:
                 DM_TX(rx_inp[1])
-    ################################################
-    # DIGI
-    elif own_call in rx_inp[1]['via']:
-        pass    # TODO!!!!!!!!!!!!!!!!!!
+    else:
+        ################################################
+        # DIGI
+        for v in rx_inp[1]['via']:
+            if not v[2] and [v[0], v[1]] in digi_calls:
+                v[2] = True
+                print('DIGI > ' + str(rx_inp[0]))
+                DigiPeating(rx_inp[1])
+                break
+            elif not v[2] and [v[0], v[1]] not in digi_calls:
+                break
 
 
 def handle_rx_fm_conn(conn_id, rx_inp):
@@ -146,6 +152,25 @@ def handle_rx_fm_conn(conn_id, rx_inp):
     monitor.debug_out('')
     print('~~~~~~RX IN~~~~~~~~~~~~~~')
     print('')
+
+
+def DigiPeating(rx_inp):
+    # print('DIGI Func inp > ' + str(rx_inp))
+    pac = get_tx_packet_item(rx_inp)
+
+    pac['call'] = rx_inp['FROM']
+    pac['dest'] = rx_inp['TO']
+    pac['via'] = rx_inp['via']
+    pac['out'] = rx_inp['data'][0]
+    pac['cmd'] = rx_inp['ctl']['cmd']
+    pac['typ'] = [rx_inp['ctl']['flag'], rx_inp['ctl']['pf'], rx_inp['ctl']['nr'], rx_inp['ctl']['ns']]
+    if rx_inp['pid']:
+        pac['pid'] = int(rx_inp['pid'][1], 16)
+
+    # TODO ############################################################################
+    # Maybe extra Buffer or Default Conn_id for Digi to control timing of TXing Packets
+    tx_buffer.append(pac)
+    # TODO ######### tx_buffer.append(pac) Just for testing
 
 
 def SABM_TX():

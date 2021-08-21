@@ -8,6 +8,7 @@ debug = True
 
 
 def monitor(data):
+    data = dict(data)
     db_c = 0
     if debug:
         db_c = 1

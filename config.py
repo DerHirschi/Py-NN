@@ -9,6 +9,7 @@ ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
 # Globals
 Stations = {}
+digi_calls = []
 
 
 class AX25Connection(object):
@@ -37,10 +38,10 @@ class DefaultParam(AX25Connection):
     # Station Default Parameters / Also outgoing connections
     call = 'MD3SAW'
     ssid = 0                                                        # 0 = all
-    # call_str = ''                                                 # Will be set in conf_stations()
     ctext = 'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
     prompt = '> '
+    digi = True     # Digipeating
     ###################################################################################################################
     # AX25 Parameters                   ###############################################################################
     ax25PacLen = 128                    # Max Pac len
@@ -84,7 +85,12 @@ class MD4SAW(DefaultParam):
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
     prompt = 'MD4SAW> '
-    ax25PacLen = 200
+    digi = True                         # Digipeating
+    ax25PacLen = 128                    # Max Pac len
+    ax25MaxFrame = 3                    # Max (I) Frames
+    ax25TXD = 50                        # TX Delay for RTT Calculation
+    ax25T2 = 4000                       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    ax25T3 = 180000                     # TODO T3 (Inactive Link Timer)
 
 
 ########################################
@@ -97,6 +103,8 @@ stat_list = [DefaultParam, MD3SAW10, MD3SAW11, MD3SAW11]
 
 
 def conf_stations():
+    #################################################
+    # INIT Vars
     """
     Stations = {
         'MD3SAW-10': MD3SAW10(),
@@ -108,10 +116,16 @@ def conf_stations():
         if obj.ssid:
             call_str = ax.get_call_str(obj.call, obj.ssid)
             Stations[call_str] = obj
+            if obj.digi:
+                digi_calls.append([obj.call, obj.ssid])
         else:
+            #########################################
+            # If no SSID make all SSIDs connectable
             for ssid in range(16):
                 call_str = ax.get_call_str(obj.call, ssid)
                 Stations[call_str] = obj
+                if obj.digi:
+                    digi_calls.append([obj.call, ssid])
 
 
 
