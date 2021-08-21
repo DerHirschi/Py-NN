@@ -1,9 +1,4 @@
 import ax25enc as ax
-import threading
-import time
-import os
-import serial
-import monitor
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
@@ -22,12 +17,13 @@ class AX25Connection(object):
     stat = ''                       # State ( SABM, RR, DISC )
     vs = 0
     vr = 0
-    noAck = []                     # No Ack Packets
-    ack = [False, False, False]     # Send on next time, PF-Bit, CMD
-    rej = [False, False]
+    noAck = []                      # No Ack Packets
+    ack = [False, False, False]     # Send trigger, PF-Bit, CMD
+    rej = [False, False]            # Send trigger, PF-Bit
+    snd_RRt3 = False                # Await respond from RR cmd
     t1 = 0
     t2 = 0
-    t3 = 0                          # TODO
+    t3 = 0
     n2 = 1
 
 
@@ -41,17 +37,17 @@ class DefaultParam(AX25Connection):
     ctext = 'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
     prompt = '> '
-    digi = True     # Digipeating
+    digi = False                        # Digipeating
     ###################################################################################################################
     # AX25 Parameters                   ###############################################################################
     ax25PacLen = 128                    # Max Pac len
     ax25MaxFrame = 3                    # Max (I) Frames
     ax25TXD = 50                        # TX Delay for RTT Calculation
     ax25T2 = 4000                       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
-    ax25T3 = 180000                     # TODO T3 (Inactive Link Timer)
+    ax25T3 = 18000                      # T3 (Inactive Link Timer) Default: 18000
+    ax25N2 = 5                          # Max Try   Default 20
     parm_MaxBufferTX = 20               # Max Frames to send from Buffer
     parm_max_i_frame = 14               # Max I-Frame (all connections) per Cycle
-    parm_N2 = 5                         # Max Try   Default 20
     parm_baud = 1200                    # Baud for RTT Calculation
     parm_T0 = 400                       # T0 (Response Delay Timer) activated if data come in to prev resp. to early
     # parm_T1 = ax25T1                    # T0 (Response Delay Timer) activated if data come in to prev resp. to early
@@ -72,6 +68,7 @@ class MD3SAW10(DefaultParam):
 class MD3SAW11(DefaultParam):
     call = 'MD3SAW'
     ssid = 11                                                       # 0 = all
+    digi = True                                                     # Digipeating
     ctext = 'MD3SAW-11\r' \
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
@@ -91,6 +88,7 @@ class MD4SAW(DefaultParam):
     ax25TXD = 50                        # TX Delay for RTT Calculation
     ax25T2 = 4000                       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
     ax25T3 = 180000                     # TODO T3 (Inactive Link Timer)
+    ax25N2 = 5                          # Max Try   Default 20
 
 
 ########################################
