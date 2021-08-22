@@ -273,7 +273,7 @@ def decode_ax25_frame(data_in):
     monitor.debug_out(text)
     if ret['ctl']:
         if ret['ctl']['info']:
-            ret['data'] = (tmp_str2, len(tmp_str2))                 # TODO chr() ?
+            ret['data'] = [tmp_str2, len(tmp_str2)]                 # TODO chr() ?
     ret['via'] = via
     for ke in ['TO', 'FROM', 'ctl']:         # Little Check Frame is plausible TODO better check
         if not ret[ke]:

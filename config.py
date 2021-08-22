@@ -14,7 +14,7 @@ class AX25Connection(object):
     via = []
     tx = []                         # TX Buffer (T1)
     tx_ctl = []                     # CTL TX Buffer (T2)
-    rx_data = ''                    # RX Data Buffer
+    rx_data = []                    # RX Data Buffer
     tx_data = ''                    # TX Data Buffer
     stat = ''                       # State ( SABM, RR, DISC )
     vs = 0
@@ -27,22 +27,43 @@ class AX25Connection(object):
     t2 = 0
     t3 = 0
     n2 = 1
-    cli_inz = None                  # CLI Object
 
 
 class DefaultParam(AX25Connection):
     def __init__(self):
         self.call = [self.call, self.ssid]
-        init_cli(self)
+        self.dest = ['', 0]
+        self.via = []
+        self.tx = []  # TX Buffer (T1)
+        self.tx_ctl = []  # CTL TX Buffer (T2)
+        self.rx_data = []  # RX Data Buffer
+        self.tx_data = ''  # TX Data Buffer
+        self.stat = ''  # State ( SABM, RR, DISC )
+        self.vs = 0
+        self.vr = 0
+        self.noAck = []  # No Ack Packets
+        self.ack = [False, False, False]  # Send trigger, PF-Bit, CMD
+        self.rej = [False, False]  # Send trigger, PF-Bit
+        self.snd_RRt3 = False  # Await respond from RR cmd
+        self.t1 = 0
+        self.t2 = 0
+        self.t3 = 0
+        self.n2 = 1
+        ###################################
+        # CLI
+        self.cli = None
+        if self.cli_type:
+            init_cli(self)
     #################################################################
     # Station Default Parameters / Also outgoing connections
     call = 'MD3SAW'
     ssid = 0                                                        # 0 = all
     ctext = 'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
+    qtext = '\r73 de {}\r'
     prompt = '> '
     digi = False                        # Digipeating
-    cli_type = None                     # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS)
+    cli_type = 0                        # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS)
     ###################################################################################################################
     # AX25 Parameters                   ###############################################################################
     ax25PacLen = 128                    # Max Pac len
@@ -59,6 +80,10 @@ class DefaultParam(AX25Connection):
     parm_T2 = ax25T2 / (parm_baud / 100)
     # parm_IRTT = 550                   # Initial-Round-Trip-Time
     parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
+
+    def handle_cli(self):
+        if self.cli:
+            self.cli.main()
 
 
 class MD3SAW10(DefaultParam):
@@ -103,7 +128,7 @@ parm_max_i_frame = int(DefaultParam().parm_max_i_frame)     # Max I-Frame (all c
 parm_T0 = int(DefaultParam().parm_T0)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
 parm_MaxBufferTX = int(DefaultParam().parm_MaxBufferTX)     # Max Frames to send from Buffer
 
-stat_list = [DefaultParam, MD3SAW10, MD3SAW11, MD3SAW11]
+stat_list = [DefaultParam, MD3SAW10, MD3SAW11]
 
 
 def conf_stations():
@@ -119,6 +144,7 @@ def conf_stations():
     for obj in stat_list:
         if obj.ssid:
             call_str = ax.get_call_str(obj.call, obj.ssid)
+            obj.call_str = call_str
             Stations[call_str] = obj
             if obj.digi:
                 digi_calls.append([obj.call, obj.ssid])
@@ -127,6 +153,7 @@ def conf_stations():
             # If no SSID make all SSIDs connectable
             for ssid in range(16):
                 call_str = ax.get_call_str(obj.call, ssid)
+                obj.call_str = call_str
                 Stations[call_str] = obj
                 if obj.digi:
                     digi_calls.append([obj.call, ssid])

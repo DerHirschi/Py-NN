@@ -75,23 +75,6 @@ def set_t0():
     timer_T0 = float(parm_T0 / 100 + time.time())
 
 
-def tx_data2tx_buffer(conn_id):
-    data = str(ax_conn[conn_id].tx_data)
-    paclen = int(ax_conn[conn_id].ax25PacLen)
-    if data:
-        free_txbuff = 7 - len(ax_conn[conn_id].noAck)
-        for i in range(free_txbuff):
-            if data:
-                if I_TX(conn_id, data[:paclen]):
-                    data = data[paclen:]
-                else:
-                    break
-            else:
-                break
-
-        ax_conn[conn_id].tx_data = data
-
-
 def handle_rx(rx_inp):
     monitor.monitor(rx_inp[1])
     conn_id = ax.reverse_addr_str(rx_inp[0])
@@ -246,7 +229,7 @@ def SABM_RX(conn_id, rx_inp, owncall):
     ax_conn[conn_id].n2 = 1
     ax_conn[conn_id].tx = []
     ax_conn[conn_id].tx_data = ''
-    ax_conn[conn_id].rx_data = ''
+    ax_conn[conn_id].rx_data = []
     ax_conn[conn_id].noAck = []
     ax_conn[conn_id].snd_RRt3 = False
     ax_conn[conn_id].snd_rej = [False, False]
@@ -328,7 +311,7 @@ def REJ_TX(conn_id):
 
 def I_RX(conn_id, rx_inp):
     if rx_inp['ctl']['ns'] == ax_conn[conn_id].vr:
-        ax_conn[conn_id].rx_data += str(rx_inp['data'])
+        ax_conn[conn_id].rx_data.append(rx_inp['data'])
         ax_conn[conn_id].vr = (1 + ax_conn[conn_id].vr) % 8
         ax_conn[conn_id].t1 = 0
         confirm_I_Frames(conn_id, rx_inp)
@@ -392,7 +375,6 @@ def DISC_TX(conn_id):
     monitor.debug_out(conn_id)
     print('#### DISCO Send to ' + ax_conn[conn_id].dest[0])
     print(conn_id)
-    # Answering DISC
     if ax_conn[conn_id].stat == 'RR':
         ax_conn[conn_id].ack = [False, False, False]
         ax_conn[conn_id].rej = [False, False]
@@ -440,7 +422,7 @@ def setup_new_conn(conn_id, rx_inp, mycall):
     tmp.n2 = 1
     tmp.tx = []
     tmp.tx_data = ''
-    tmp.rx_data = ''
+    tmp.rx_data = []
     tmp.noAck = []
     tmp.snd_RRt3 = False
     tmp.snd_rej = [False, False]
@@ -526,6 +508,24 @@ def disc_all_stations():
     for conn_id in list(tmp):
         DISC_TX(conn_id)
 
+
+def tx_data2tx_buffer(conn_id):
+    data = str(ax_conn[conn_id].tx_data)
+    paclen = int(ax_conn[conn_id].ax25PacLen)
+    if data:
+        free_txbuff = 7 - len(ax_conn[conn_id].noAck)
+        for i in range(free_txbuff):
+            if data:
+                if I_TX(conn_id, data[:paclen]):
+                    data = data[paclen:]
+                else:
+                    break
+            else:
+                break
+
+        ax_conn[conn_id].tx_data = data
+
+
 #############################################################################
 
 
@@ -569,7 +569,8 @@ def handle_tx():
                     RR_TX_T3(conn_id)
                 elif not ax_conn[conn_id].snd_RRt3:
                     ####################################################################
-                    tx_data2tx_buffer(conn_id)  # Fill free TX "Slots" with data
+                    ax_conn[conn_id].handle_cli()   # CLI TODO Trigger to almost all Conditions
+                    tx_data2tx_buffer(conn_id)      # Fill free TX "Slots" with data
                     ####################################################################
                 ####################################################################
                 # CTL Frames ( Not T1 controlled ) just T2
@@ -688,6 +689,8 @@ def read_kiss():
 # INIT
 ##################################################################################################################
 conf_stations()
+for k in Stations.keys():
+    print(k)
 ##################################################################################################################
 
 i = input("T = Test\n\rEnter = Go\n\r> ")
