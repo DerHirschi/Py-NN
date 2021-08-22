@@ -6,7 +6,7 @@ class CLIDefault(object):
         Station.ctext = Station.ctext + Station.prompt
         Station.qtext = Station.qtext.format(Station.call_str)
         self.cmd_inp = []
-        self.stat = ''  # DISC,  ...
+        self.stat = ''  # DISC,  HOLD...
         self.scr = []   # Script mode ( Func, Step )
         self.scr_run = False   # Script mode / Don't wait for input
         self.cmd_dic.update(self.cmd_dic_extra)
@@ -27,45 +27,46 @@ class CLIDefault(object):
         }
 
     def main(self):
-        if not self.stat:
-            # if not self.scr:
-            if self.station.rx_data:
-                print(str(self.station.rx_data[0][0]))
-                tmp = self.station.rx_data[0][0].decode('UTF-8', errors='ignore')
-                if '\r' in tmp:
-                    self.cmd_inp = tmp.split('\r')[:-1]
-                else:
-                    self.cmd_inp = [tmp]
-                self.station.rx_data = self.station.rx_data[1:]
-                # self.station.tx_data += self.station.prompt
-            if self.cmd_inp:
-                tmp = self.cmd_inp
-                for el in tmp:
-                    if not self.scr:
-                        if self.cli_sufix:
-                            if self.cli_sufix == el[:len(self.cli_sufix)]:
-                                el = el[len(self.cli_sufix):]
+        if self.stat != 'HOLD':
+            if not self.stat:
+                # if not self.scr:
+                if self.station.rx_data:
+                    print(str(self.station.rx_data[0][0]))
+                    tmp = self.station.rx_data[0][0].decode('UTF-8', errors='ignore')
+                    if '\r' in tmp:
+                        self.cmd_inp = tmp.split('\r')[:-1]
+                    else:
+                        self.cmd_inp = [tmp]
+                    self.station.rx_data = self.station.rx_data[1:]
+                    # self.station.tx_data += self.station.prompt
+                if self.cmd_inp:
+                    tmp = self.cmd_inp
+                    for el in tmp:
+                        if not self.scr:
+                            if self.cli_sufix:
+                                if self.cli_sufix == el[:len(self.cli_sufix)]:
+                                    el = el[len(self.cli_sufix):]
+                                    self.exec_cmd(el)
+                                    print('## CLI CMD IN > ' + el)
+                            else:
                                 self.exec_cmd(el)
                                 print('## CLI CMD IN > ' + el)
                         else:
-                            self.exec_cmd(el)
-                            print('## CLI CMD IN > ' + el)
-                    else:
-                        ######################################
-                        # Script mode ( Execute self.scr[0] )
-                        print('## CLI SCR Mode > ' + str(self.scr))
-                        self.scr[0]()
-                    self.cmd_inp = self.cmd_inp[1:]
-            elif self.scr and self.scr_run:
-                print('## CLI SCR Mode runs !!> ' + str(self.scr))
-                self.scr[0]()
+                            ######################################
+                            # Script mode ( Execute self.scr[0] )
+                            print('## CLI SCR Mode > ' + str(self.scr))
+                            self.scr[0]()
+                        self.cmd_inp = self.cmd_inp[1:]
+                elif self.scr and self.scr_run:
+                    print('## CLI SCR Mode runs !!> ' + str(self.scr))
+                    self.scr[0]()
 
-        # Wait until all Data are sendet
-        elif self.stat == 'DISC' and all(not el for el in [self.station.tx_data,
-                                                           self.station.tx,
-                                                           self.station.tx_ctl,
-                                                           self.station.noAck]):
-            self.disc_cmd()
+            # Wait until all Data are sendet
+            elif self.stat == 'DISC' and all(not el for el in [self.station.tx_data,
+                                                               self.station.tx,
+                                                               self.station.tx_ctl,
+                                                               self.station.noAck]):
+                self.disc_cmd()
 
     def exec_cmd(self, cmd_in=''):
         if cmd_in:
@@ -183,7 +184,6 @@ class CLITest(CLIDefault):
                 self.scr = [self.testfnc, 1, self.scr[2]]
         # Wait for sending all Data
         elif self.scr[1] >= 3:
-            print('### CLI Test Script 3 > ' + str(int(self.scr[1])))
             if not self.station.tx and not self.station.tx_data:
                 self.station.ax25PacLen = int(self.scr[2])
                 self.station.tx_data += '\r'
@@ -248,7 +248,6 @@ class CLITest(CLIDefault):
                 self.scr = [self.testfnc2, 1, self.scr[2]]
         # Wait for sending all Data
         elif self.scr[1] >= 3:
-            print('### CLI Test Script 3 > ' + str(int(self.scr[1])))
             if not self.station.tx and not self.station.tx_data:
                 if self.scr[3] < self.scr[5]:
                     self.station.ax25PacLen = int(self.scr[4])
