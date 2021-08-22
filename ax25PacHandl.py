@@ -76,7 +76,12 @@ def set_t0():
 
 
 def handle_rx(rx_inp):
+    ############################
+    # Monitor TODO Better Monitor
     monitor.monitor(rx_inp[1])
+    ############################
+    # MH List and Statistics
+    mh.mh_inp(rx_inp)
     conn_id = ax.reverse_addr_str(rx_inp[0])
     own_call = rx_inp[0].split(':')[0]
     if own_call in Stations.keys():
@@ -148,10 +153,6 @@ def handle_rx_fm_conn(conn_id, rx_inp):
         print('#### FRMR Rec ###### ' + str(rx_inp))
         ax_conn[conn_id].cli.stat = 'HOLD'
         DISC_TX(conn_id)
-    #############################################
-    # CLI
-    ax_conn[conn_id].handle_cli()
-    #############################################
     monitor.debug_out('#### Conn Data In END ######')
     monitor.debug_out('')
     print('~~~~~~RX IN~~~~~~~~~~~~~~')
@@ -303,8 +304,6 @@ def RR_TX_T3(conn_id):
 
 def REJ_RX(conn_id, rx_inp):
     confirm_I_Frames(conn_id, rx_inp)
-    # set_t2(conn_id)
-    # ax_conn[conn_id].t1 = 0
 
 
 def REJ_TX(conn_id):
@@ -411,30 +410,6 @@ def DISC_RX(conn_id, rx_inp):
         tx_buffer.append(DM_frm(rx_inp))
 
 
-def setup_new_conn(conn_id, rx_inp, mycall):
-    tmp = Stations[mycall]()
-    from_call, to_call = rx_inp['FROM'], rx_inp['TO']
-    tmp.dest = [from_call[0], from_call[1]]
-    # TODO on SSID 0 allow multiple connections ( call SSID +=1 )
-    via = []
-    for el in rx_inp['via']:
-        via.append([el[0], el[1], False])
-    via.reverse()
-    tmp.via = via
-    tmp.vs, tmp.vr = 0, 0
-    tmp.t1 = 0
-    tmp.n2 = 1
-    tmp.tx = []
-    tmp.tx_data = ''
-    tmp.rx_data = []
-    tmp.noAck = []
-    tmp.snd_RRt3 = False
-    tmp.snd_rej = [False, False]
-    tmp.ack = [False, False, False]
-    ax_conn[conn_id] = tmp
-    set_t3(conn_id)
-
-
 #######################################################################
 
 
@@ -507,6 +482,30 @@ def REJ_frm(conn_id, pf_bit=False, cmd=False):
 #############################################################################
 
 
+def setup_new_conn(conn_id, rx_inp, mycall):
+    tmp = Stations[mycall]()
+    from_call, to_call = rx_inp['FROM'], rx_inp['TO']
+    tmp.dest = [from_call[0], from_call[1]]
+    # TODO on SSID 0 allow multiple connections ( call SSID +=1 )
+    via = []
+    for el in rx_inp['via']:
+        via.append([el[0], el[1], False])
+    via.reverse()
+    tmp.via = via
+    tmp.vs, tmp.vr = 0, 0
+    tmp.t1 = 0
+    tmp.n2 = 1
+    tmp.tx = []
+    tmp.tx_data = ''
+    tmp.rx_data = []
+    tmp.noAck = []
+    tmp.snd_RRt3 = False
+    tmp.snd_rej = [False, False]
+    tmp.ack = [False, False, False]
+    ax_conn[conn_id] = tmp
+    set_t3(conn_id)
+
+
 def disc_all_stations():
     tmp = ax_conn.keys()
     for conn_id in list(tmp):
@@ -553,7 +552,10 @@ def handle_tx():
     # Check T0
     # if time.time() > timer_T0 or timer_T0 == 0:
     for conn_id in ax_conn.keys():
-
+        #############################################
+        # CLI
+        ax_conn[conn_id].handle_cli()
+        #############################################
         # Check T2
         if time.time() > ax_conn[conn_id].t2 or ax_conn[conn_id].t2 == 0:
             if pac_c > parm_MaxBufferTX:

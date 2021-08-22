@@ -9,11 +9,9 @@ class CLIDefault(object):
         self.stat = ''  # DISC,  HOLD...
         self.scr = []   # Script mode ( Func, Step )
         self.scr_run = False   # Script mode / Don't wait for input
-        self.cmd_dic.update(self.cmd_dic_extra)
 
     cli_msg_tag = '<{}>'
     cli_sufix = '//'
-    cmd_dic_extra = {}
 
     def get_tx_packet_item(self):
         return {
@@ -31,7 +29,7 @@ class CLIDefault(object):
             if not self.stat:
                 # if not self.scr:
                 if self.station.rx_data:
-                    print(str(self.station.rx_data[0][0]))
+                    # print(str(self.station.rx_data[0][0]))
                     tmp = self.station.rx_data[0][0].decode('UTF-8', errors='ignore')
                     if '\r' in tmp:
                         self.cmd_inp = tmp.split('\r')[:-1]
@@ -70,10 +68,10 @@ class CLIDefault(object):
 
     def exec_cmd(self, cmd_in=''):
         if cmd_in:
-            if cmd_in[0].upper() in self.cmd_dic.keys():
-                self.cmd_dic[cmd_in[0].upper()][0](self)
-            elif cmd_in[:2].upper() in self.cmd_dic.keys():
+            if cmd_in[:2].upper() in self.cmd_dic.keys():
                 self.cmd_dic[cmd_in[:2].upper()][0](self)
+            elif cmd_in[0].upper() in self.cmd_dic.keys():
+                self.cmd_dic[cmd_in[0].upper()][0](self)
             else:
                 self.tx_cli_msg(' Command not found ! ')
         else:
@@ -102,6 +100,11 @@ class CLIDefault(object):
         self.station.tx_data += out
         self.station.tx_data += self.station.prompt
 
+    def mh_cmd(self):
+        out = self.station.mh.mh_out_cli()
+        self.station.tx_data += out
+        self.station.tx_data += self.station.prompt
+
     def quit_cmd(self):
         print('######## CLI Disc Q/B')
         self.stat = 'DISC'
@@ -126,14 +129,43 @@ class CLIDefault(object):
         'Q': (quit_cmd, 'Quit/Bye'),
         'B': (quit_cmd, 'Bye/Quit'),
         'D': (disc_cmd, 'Disconnect from Station'),
+        'MH': (mh_cmd, 'MH LIst'),
         '?': (list_cmd_help, 'List available Commands'),
         'H': (short_help, 'Show this ..'),
     }
 
 
 #################################################
+# File Transpoert ( Test )
+class CLIFileTransport(CLIDefault):
+    def ft_up(self):
+        self.tx_cli_msg('!!DUMMY!!Not implemented yet !')
+
+    def ft_dn(self):
+        if not self.scr:
+            file = open('test.tar.gz', 'rb')
+            f_out = file.read()
+            f_out = ''.join('{:02x}'.format(x) for x in f_out)
+            file.close()
+            self.station.tx_data += '\r#' + str(len(f_out))
+            self.station.tx_data += '\r#START\r'
+            self.station.tx_data += f_out
+            self.station.tx_data += '\r#END\r'
+            # Init Fnc Count
+            self.scr_run = False
+            self.scr = [self.ft_up, 0]
+
+
+    CLIDefault.cmd_dic.update({
+
+        'UP': (ft_up, 'Upload Test File'),
+        'DN': (ft_dn, 'Download Test File'),
+    })
+
+
+#################################################
 # Test CLI
-class CLITest(CLIDefault):
+class CLITest(CLIFileTransport):
     cli_msg_tag = '<{}>'
     cli_sufix = ''
 
@@ -276,10 +308,10 @@ class CLITest(CLIDefault):
             if int(self.scr[1]) < 3:
                 self.scr[1] += 1
 
-    cmd_dic_extra = {
+    CLIDefault.cmd_dic.update({
         'T1': (testfnc, 'Test Packet sender 1'),
-        'T2': (testfnc2, 'Test Packet sender 2')
-    }
+        'T2': (testfnc2, 'Test Packet sender 2'),
+    })
 
 
 ####################################################################

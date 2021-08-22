@@ -54,7 +54,7 @@ def decode_ax25_frame(data_in):
         'via': [],
         'ctl': [],
         'pid': (),
-        'data': ('', 0)
+        'data': ['', 0]
         # "DIGI1..8"
         # "data"
     }
@@ -292,7 +292,7 @@ def decode_ax25_frame(data_in):
     if debug:
         for k in ret.keys():
             monitor.debug_out(ret[k])
-    return address_str.replace('*', ''), ret
+    return address_str.replace('*', ''), ret, len(data_in)
 
 
 def encode_ax25_frame(con_data):

@@ -1,5 +1,6 @@
 import ax25enc as ax
 from remote_cli import init_cli
+from ax25Statistics import MH
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
@@ -7,6 +8,9 @@ ser_baud = 9600
 Stations = {}
 digi_calls = []
 cli_calls = []
+#################################
+# Init MH
+mh = MH()
 
 
 class AX25Connection(object):
@@ -52,6 +56,7 @@ class DefaultParam(AX25Connection):
         ###################################
         # CLI
         self.cli = None
+        self.mh = mh
         if self.cli_type:
             init_cli(self)
     #################################################################
@@ -157,7 +162,6 @@ def conf_stations():
                 Stations[call_str] = obj
                 if obj.digi:
                     digi_calls.append([obj.call, ssid])
-
 
 
 ################################
