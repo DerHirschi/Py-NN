@@ -56,7 +56,6 @@ class CLIDefault(object):
                             self.scr[0]()
                         self.cmd_inp = self.cmd_inp[1:]
                 elif self.scr and self.scr_run:
-                    print('## CLI SCR Mode runs !!> ' + str(self.scr))
                     self.scr[0]()
 
             # Wait until all Data are sendet
@@ -138,6 +137,7 @@ class CLIDefault(object):
 #################################################
 # File Transpoert ( Test )
 class CLIFileTransport(CLIDefault):
+
     def ft_up(self):
         self.tx_cli_msg('!!DUMMY!!Not implemented yet !')
 
@@ -145,17 +145,26 @@ class CLIFileTransport(CLIDefault):
         if not self.scr:
             file = open('test.tar.gz', 'rb')
             f_out = file.read()
-            f_out = ''.join('{:02x}'.format(x) for x in f_out)
             file.close()
-            self.station.tx_data += '\r#' + str(len(f_out))
-            self.station.tx_data += '\r#START\r'
-            self.station.tx_data += f_out
-            self.station.tx_data += '\r#END\r'
+            self.station.tx_data += '\r#BIN#' + str(len(f_out)) + '##test.tar.gz'
+
             # Init Fnc Count
-            self.scr_run = False
-            self.scr = [self.ft_up, 0]
-
-
+            self.scr_run = True
+            self.scr = [self.ft_dn, 0]
+        elif self.scr[1] == 0:
+            if not self.station.noAck and not self.station.tx_data:
+                file = open('test.tar.gz', 'rb')
+                f_out = file.read()
+                file.close()
+                self.station.tx_bin += f_out
+                self.scr_run = True
+                self.scr = [self.ft_dn, 1]
+        elif self.scr[1] == 1:
+            if not self.station.noAck and not self.station.tx_bin:
+                self.station.tx_data += '\r#OK#\r'
+                self.tx_cli_msg(' Done ! ')
+                self.scr_run = False
+                self.scr = []
     CLIDefault.cmd_dic.update({
 
         'UP': (ft_up, 'Upload Test File'),

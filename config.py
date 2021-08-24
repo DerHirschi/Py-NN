@@ -16,10 +16,11 @@ mh = MH()
 class AX25Connection(object):
     dest = ['', 0]
     via = []
-    tx = []                         # TX Buffer (T1)
-    tx_ctl = []                     # CTL TX Buffer (T2)
+    tx = []                         # TX Packet Buffer (T1)
+    tx_ctl = []                     # TX Ctl Packet Buffer (T2)
     rx_data = []                    # RX Data Buffer
     tx_data = ''                    # TX Data Buffer
+    tx_bin = bytearray(0)           # TX Data Buffer for Binary Data
     stat = ''                       # State ( SABM, RR, DISC )
     vs = 0
     vr = 0
@@ -31,6 +32,9 @@ class AX25Connection(object):
     t2 = 0
     t3 = 0
     n2 = 1
+    rtt = {
+        # vs: time.time()
+    }
 
 
 class DefaultParam(AX25Connection):
@@ -38,11 +42,12 @@ class DefaultParam(AX25Connection):
         self.call = [self.call, self.ssid]
         self.dest = ['', 0]
         self.via = []
-        self.tx = []  # TX Buffer (T1)
-        self.tx_ctl = []  # CTL TX Buffer (T2)
-        self.rx_data = []  # RX Data Buffer
-        self.tx_data = ''  # TX Data Buffer
-        self.stat = ''  # State ( SABM, RR, DISC )
+        self.tx = []  # T           X Buffer (T1)
+        self.tx_ctl = []            # CTL TX Buffer (T2)
+        self.rx_data = []           # RX Data Buffer
+        self.tx_data = ''           # TX Data Buffer
+        self.tx_bin = bytearray(0)  # TX Data Buffer
+        self.stat = ''              # State ( SABM, RR, DISC )
         self.vs = 0
         self.vr = 0
         self.noAck = []  # No Ack Packets
@@ -53,6 +58,7 @@ class DefaultParam(AX25Connection):
         self.t2 = 0
         self.t3 = 0
         self.n2 = 1
+        self.parm_RTT = self.parm_IRTT
         ###################################
         # CLI
         self.cli = None
@@ -71,16 +77,16 @@ class DefaultParam(AX25Connection):
     cli_type = 0                        # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS)
     ###################################################################################################################
     # AX25 Parameters                   ###############################################################################
-    ax25PacLen = 128                    # Max Pac len
-    ax25MaxFrame = 3                    # Max (I) Frames
+    ax25PacLen = 115                    # Max Pac len
+    ax25MaxFrame = 5                    # Max (I) Frames
     ax25TXD = 50                        # TX Delay for RTT Calculation
-    ax25T2 = 4000                       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    ax25T2 = 2888                       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
     ax25T3 = 18000                      # T3 (Inactive Link Timer) Default: 18000
-    ax25N2 = 5                          # Max Try   Default 20
+    ax25N2 = 20                         # Max Try   Default 20 TODO Testing
     parm_MaxBufferTX = 20               # Max Frames to send from Buffer
     parm_max_i_frame = 14               # Max I-Frame (all connections) per Cycle
     parm_baud = 1200                    # Baud for RTT Calculation
-    parm_T0 = 400                       # T0 (Response Delay Timer) activated if data come in to prev resp. to early
+    parm_T0 = 1200                      # T0 (Response Delay Timer) activated if data come in to prev resp. to early
     # parm_T1 = ax25T1                    # T0 (Response Delay Timer) activated if data come in to prev resp. to early
     parm_T2 = ax25T2 / (parm_baud / 100)
     # parm_IRTT = 550                   # Initial-Round-Trip-Time
@@ -131,6 +137,7 @@ class MD4SAW(DefaultParam):
 # AX25 Parameters
 parm_max_i_frame = int(DefaultParam().parm_max_i_frame)     # Max I-Frame (all connections) per Cycle
 parm_T0 = int(DefaultParam().parm_T0)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
+parm_T2 = int(DefaultParam().parm_T2)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
 parm_MaxBufferTX = int(DefaultParam().parm_MaxBufferTX)     # Max Frames to send from Buffer
 
 stat_list = [DefaultParam, MD3SAW10, MD3SAW11]

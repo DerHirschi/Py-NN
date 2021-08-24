@@ -59,13 +59,24 @@ class MH(object):
     def mh_out_cli(self):
 
         out = ''
-        out += '\r       < MH - List >\r\r'
+        out += '\r                       < MH - List >\r\r'
         c = 0
+        tp = 0
+        tb = 0
+        rj = 0
         for call in list(self.calls.keys()):
             out += '{:8} S {} '.format(round(time.time() - self.calls[call]['last_seen'][0]), call)
+            tp += self.calls[call]['pac_n']
+            tb += self.calls[call]['byte_n']
+            rj += self.calls[call]['rej_n']
             c += 1
             if c == 3:
                 c = 0
                 out += '\r'
         out += '\r'
+        out += '\rTotal Packets Rec.: ' + str(tp)
+        out += '\rTotal REJ-Packets Rec.: ' + str(rj)
+        out += '\rTotal Bytes Rec.: ' + str(tb)
+        out += '\r'
+
         return out
