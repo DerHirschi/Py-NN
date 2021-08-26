@@ -2,14 +2,11 @@
 class CLIDefault(object):
     def __init__(self, Station):
         self.station = Station
-        Station.prompt = '\r' + Station.prompt
-        Station.ctext = Station.ctext + Station.prompt
-        Station.qtext = Station.qtext.format(Station.call_str)
         self.cmd_inp = []
         self.stat = ''  # DISC,  HOLD...
         self.scr = []   # Script mode ( Func, Step )
         self.scr_run = False   # Script mode / Don't wait for input
-
+        Station.qtext = Station.qtext.format(Station.call_str)
     cli_msg_tag = '<{}>'
     cli_sufix = '//'
 
@@ -74,13 +71,21 @@ class CLIDefault(object):
             else:
                 self.tx_cli_msg(' Command not found ! ')
         else:
-            self.station.tx_data += self.station.prompt
+            self.station.tx_data += self.station.promptvar
 
     ############################################
     # Default CMDs
     def tx_cli_msg(self, msg):
         self.station.tx_data += '\r' + self.cli_msg_tag.format(msg)
-        self.station.tx_data += self.station.prompt
+        self.station.tx_data += self.station.promptvar
+
+    def vers(self):
+        out = "******************************************************\r" \
+              "* Testing Stuff Station. I don't know something with *\r" \
+              "*  AX25 de/encoding in Python from MD2SAW (Manuel)   *\r" \
+              "******************************************************\r"
+        self.station.tx_data += '\r' + out
+        self.station.tx_data += self.station.promptvar
 
     def list_cmd_help(self):
         out = 'Available Commands:'
@@ -97,12 +102,12 @@ class CLIDefault(object):
                 fl = el
             out += '{} < {}\r'.format(fl, self.cmd_dic[el][1])
         self.station.tx_data += out
-        self.station.tx_data += self.station.prompt
+        self.station.tx_data += self.station.promptvar
 
     def mh_cmd(self):
         out = self.station.mh.mh_out_cli()
         self.station.tx_data += out
-        self.station.tx_data += self.station.prompt
+        self.station.tx_data += self.station.promptvar
 
     def quit_cmd(self):
         print('######## CLI Disc Q/B')
@@ -125,12 +130,13 @@ class CLIDefault(object):
     ############################################
     # Default CMD Dict
     cmd_dic = {
-        'Q': (quit_cmd, 'Quit/Bye'),
-        'B': (quit_cmd, 'Bye/Quit'),
-        'D': (disc_cmd, 'Disconnect from Station'),
-        'MH': (mh_cmd, 'MH LIst'),
+        'Q': (quit_cmd, '(Q)uit/Bye'),
+        'B': (quit_cmd, '(B)ye/Quit'),
+        'D': (disc_cmd, '(D)isconnect from Station'),
+        'MH': (mh_cmd, '(MH) LIst'),
         '?': (list_cmd_help, 'List available Commands'),
         'H': (short_help, 'Show this ..'),
+        'V': (vers, '(V)ersion - Software Info'),
     }
 
 
@@ -167,8 +173,8 @@ class CLIFileTransport(CLIDefault):
                 self.scr = []
     CLIDefault.cmd_dic.update({
 
-        'UP': (ft_up, 'Upload Test File'),
-        'DN': (ft_dn, 'Download Test File'),
+        'UP': (ft_up, '(Up)load Test File'),
+        'DO': (ft_dn, '(Do)wnload Test File'),
     })
 
 
@@ -317,15 +323,28 @@ class CLITest(CLIFileTransport):
             if int(self.scr[1]) < 3:
                 self.scr[1] += 1
 
+    def sh_parm(self):
+        out = ''.join("%s: %s\r" % item for item in vars(self.station).items())
+        self.station.tx_data += '\r< Connection Parameter >\r\r'
+        self.station.tx_data += out
+        self.station.tx_data += self.station.promptvar
+
     CLIDefault.cmd_dic.update({
         'T1': (testfnc, 'Test Packet sender 1'),
         'T2': (testfnc2, 'Test Packet sender 2'),
+        'PA': (sh_parm, 'Show all (Pa)rameters'),
     })
 
 
 ####################################################################
-class CLINode(CLIDefault):
-    pass
+# class CLINode(CLIDefault):
+class CLINode(CLITest):
+    def connect(self):
+        self.station.tx_data += self.station.promptvar
+
+    CLIDefault.cmd_dic.update({
+        'C': (connect, '(C)onnect to other Station ( Not implemented yet )'),
+    })
 
 
 ####################################################################

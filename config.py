@@ -32,9 +32,6 @@ class AX25Connection(object):
     t2 = 0
     t3 = 0
     n2 = 1
-    rtt = {
-        # vs: time.time()
-    }
 
 
 class DefaultParam(AX25Connection):
@@ -42,29 +39,41 @@ class DefaultParam(AX25Connection):
         self.call = [self.call, self.ssid]
         self.dest = ['', 0]
         self.via = []
-        self.tx = []  # T           X Buffer (T1)
+        self.tx = []                # TX Buffer (T1)
         self.tx_ctl = []            # CTL TX Buffer (T2)
         self.rx_data = []           # RX Data Buffer
         self.tx_data = ''           # TX Data Buffer
-        self.tx_bin = bytearray(0)  # TX Data Buffer
+        self.tx_bin = bytearray(0)  # TX Data Buffer (Binary) Has TX Priority
         self.stat = ''              # State ( SABM, RR, DISC )
         self.vs = 0
         self.vr = 0
-        self.noAck = []  # No Ack Packets
+        self.noAck = []             # No Ack Packets
         self.ack = [False, False, False]  # Send trigger, PF-Bit, CMD
-        self.rej = [False, False]  # Send trigger, PF-Bit
-        self.snd_RRt3 = False  # Await respond from RR cmd
+        self.rej = [False, False]   # Send trigger, PF-Bit
+        self.snd_RRt3 = False       # Await respond from RR cmd
         self.t1 = 0
         self.t2 = 0
         self.t3 = 0
         self.n2 = 1
         self.parm_RTT = self.parm_IRTT
+        self.rtt = {
+            # vs: time.time()
+        }
+        self.station_ctexte_var = {}
         ###################################
         # CLI
         self.cli = None
         self.mh = mh
         if self.cli_type:
             init_cli(self)
+            self.promptvar = '\r' + self.prompt
+            self.ctextvar = self.ctext + self.prompt
+            for k in self.station_ctexte.keys():
+                self.station_ctexte_var[k] = self.station_ctexte[k] + self.prompt
+        else:
+            self.ctextvar = self.ctext
+            self.promtvar = self.prompt
+
     #################################################################
     # Station Default Parameters / Also outgoing connections
     call = 'MD3SAW'
@@ -72,8 +81,11 @@ class DefaultParam(AX25Connection):
     ctext = 'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
     qtext = '\r73 de {}\r'
+    station_ctexte = {
+        'MD2SAW': 'C Text for MD2SAW\r',
+    }
     prompt = '> '
-    digi = False                        # Digipeating
+    digi = True                         # Digipeating
     cli_type = 0                        # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS)
     ###################################################################################################################
     # AX25 Parameters                   ###############################################################################
@@ -177,7 +189,7 @@ ax_test_pac = [{
     'call': ['MD2SAW', 8],
     'dest': ['APRS', 0],
     'via': [['DX0SAW', 0, False]],
-    'out': '< TEST fm MD2SAW ( JO52NU ) >',
+    'out': '< TEST BESTANDEN !! >',
     'typ': ['UI', True],
     'cmd': True,
     'pid': 6

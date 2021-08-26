@@ -114,17 +114,17 @@ def handle_rx(rx_inp):
                 handle_rx_fm_conn(conn_id, rx_inp[1])
             else:
                 DM_TX(rx_inp[1])
-    else:
-        ################################################
-        # DIGI
-        for v in rx_inp[1]['via']:
-            if not v[2] and [v[0], v[1]] in digi_calls:
-                v[2] = True
-                print('DIGI > ' + str(rx_inp[0]))
-                DigiPeating(rx_inp[1])
-                break
-            elif not v[2] and [v[0], v[1]] not in digi_calls:
-                break
+
+    ################################################
+    # DIGI
+    for v in rx_inp[1]['via']:
+        if not v[2] and ([v[0], v[1]] in digi_calls):
+            v[2] = True
+            print('DIGI > ' + str(rx_inp[0]))
+            DigiPeating(rx_inp[1])
+            break
+        elif not v[2] and ([v[0], v[1]] not in digi_calls):
+            break
 
 
 def handle_rx_fm_conn(conn_id, rx_inp):
@@ -251,7 +251,10 @@ def SABM_RX(conn_id, rx_inp, owncall):
 
     #####################################################################################
     # C-Text
-    ax_conn[conn_id].tx_data += ax_conn[conn_id].ctext
+    if ax_conn[conn_id].dest[0] in ax_conn[conn_id].station_ctexte_var.keys():
+        ax_conn[conn_id].tx_data += ax_conn[conn_id].station_ctexte_var[ax_conn[conn_id].dest[0]]
+    else:
+        ax_conn[conn_id].tx_data += ax_conn[conn_id].ctextvar
     #####################################################################################
 
 
@@ -282,7 +285,8 @@ def confirm_I_Frames(conn_id, rx_inp):
             for el in rmv_list:
                 tmp_tx_buff.remove(el)
                 no_ack.remove(el['typ'][3])
-                ax_conn[conn_id].parm_RTT = (time.time() - ax_conn[conn_id].rtt[int(el['typ'][3])]) * 1000
+                # TODO RTT Calc just on RR cmd Frame???
+                ax_conn[conn_id].parm_RTT = (time.time() - ax_conn[conn_id].rtt[int(el['typ'][3])]) * 100
                 print('######### Parm RTT > ' + str(ax_conn[conn_id].parm_RTT))
                 print('######### Parm IRTT > ' + str(ax_conn[conn_id].parm_IRTT))
                 del ax_conn[conn_id].rtt[int(el['typ'][3])]
@@ -292,6 +296,7 @@ def confirm_I_Frames(conn_id, rx_inp):
             ax_conn[conn_id].noAck = no_ack
             ax_conn[conn_id].vs = rx_inp['ctl']['nr']
     ax_conn[conn_id].n2 = 1
+    ax_conn[conn_id].t1 = 0
 
 
 def RR_RX(conn_id, rx_inp):
@@ -306,6 +311,7 @@ def RR_RX(conn_id, rx_inp):
 
 def RR_TX_T3(conn_id):
     # T3 is done ( Hold connection )
+    # TODO RTT Calc just on RR cmd Frame???
     ax_conn[conn_id].ack = [False, True, True]
     ax_conn[conn_id].tx_ctl = [RR_frm(conn_id)] + list(ax_conn[conn_id].tx_ctl)
     ax_conn[conn_id].snd_RRt3 = True
@@ -590,9 +596,14 @@ def handle_tx():
 
                 ####################################################################
                 # T3
+                '''
                 if (time.time() > ax_conn[conn_id].t3 or ax_conn[conn_id].snd_RRt3)\
                         and (not ax_conn[conn_id].tx_ctl and not ax_conn[conn_id].tx_ctl)\
                         and (time.time() > t1 or t1 == 0):
+                '''
+                if (time.time() > ax_conn[conn_id].t3 or ax_conn[conn_id].snd_RRt3) \
+                        and not ax_conn[conn_id].tx_ctl \
+                        and (time.time() > t1 or t1 == 0):  # TODO .. ?? Check tx_ctl ??
                     RR_TX_T3(conn_id)
                 elif not ax_conn[conn_id].snd_RRt3:
                     ####################################################################
