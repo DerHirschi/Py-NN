@@ -538,7 +538,6 @@ class AXPort(threading.Thread):
 
     #############################################################################
     
-    # TODO Class Init ( class AX25Functions: )
     def setup_new_conn(self, conn_id, rx_inp, mycall):
         tmp = self.ax_Stations[mycall]()
         from_call, to_call = rx_inp['FROM'], rx_inp['TO']
@@ -558,6 +557,8 @@ class AXPort(threading.Thread):
         tmp.snd_RRt3 = False
         tmp.snd_rej = [False, False]
         tmp.ack = [False, False, False]
+        tmp.port = self
+        tmp.conn_id = conn_id
         self.ax_conn[conn_id] = tmp
         self.set_t3(conn_id)
 
@@ -736,36 +737,35 @@ else:
     os.system('clear')
     #####################
     # Init
-    try:
 
-        for k in conf_ax_ports.keys():
-            ax_ports[k] = AXPort((conf_ax_ports[k]['port'], conf_ax_ports[k]['baud']), conf_ax_ports[k]['typ'])
-            for stat in conf_ax_ports[k]['stat_list']:
-                if stat.ssid:
-                    call_str = ax.get_call_str(stat.call, stat.ssid)
+    for k in conf_ax_ports.keys():
+        ax_ports[k] = AXPort((conf_ax_ports[k]['port'], conf_ax_ports[k]['baud']), conf_ax_ports[k]['typ'])
+        for stat in conf_ax_ports[k]['stat_list']:
+            if stat.ssid:
+                call_str = ax.get_call_str(stat.call, stat.ssid)
+                stat.call_str = call_str
+                # stat.port = ax_ports[k]
+                ax_ports[k].ax_Stations[call_str] = stat
+                if stat.digi:
+                    # digi_calls.append([[stat.call, stat.ssid], ax_ports[k]])
+                    digi_calls[call_str] = ax_ports[k]
+
+            else:
+                #########################################
+                # If no SSID make all SSIDs connectable
+                for ssid in range(16):
+                    call_str = ax.get_call_str(stat.call, ssid)
                     stat.call_str = call_str
-                    stat.port = ax_ports[k]
+                    # stat.port = ax_ports[k]
                     ax_ports[k].ax_Stations[call_str] = stat
                     if stat.digi:
-                        # digi_calls.append([[stat.call, stat.ssid], ax_ports[k]])
                         digi_calls[call_str] = ax_ports[k]
+        ax_ports[k].start()
 
-                else:
-                    #########################################
-                    # If no SSID make all SSIDs connectable
-                    for ssid in range(16):
-                        call_str = ax.get_call_str(stat.call, ssid)
-                        stat.call_str = call_str
-                        stat.port = ax_ports[k]
-                        ax_ports[k].ax_Stations[call_str] = stat
-                        if stat.digi:
-                            digi_calls[call_str] = ax_ports[k]
-            ax_ports[k].start()
-
-        # ax_ports[k].ax_Stations
-        # kiss = AXPort(("/tmp/ptyAX5", 9600))
-        kiss = ax_ports[0]
-        # try:
+    # ax_ports[k].ax_Stations
+    # kiss = AXPort(("/tmp/ptyAX5", 9600))
+    kiss = ax_ports[0]
+    try:
         # kiss.start()
 
         while not p_end:

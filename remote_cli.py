@@ -10,17 +10,6 @@ class CLIDefault(object):
     cli_msg_tag = '<{}>'
     cli_sufix = '//'
 
-    def get_tx_packet_item(self):
-        return {
-            'call': self.station.call,
-            'dest': self.station.dest,
-            'via': self.station.via,
-            'out': '',
-            'typ': [],  # ['SABM', True, 0],  # Type, P/F, N(R), N(S)
-            'cmd': False,
-            'pid': 6,
-        }
-
     def main(self):
         if self.stat != 'HOLD':
             if not self.stat:
@@ -116,16 +105,7 @@ class CLIDefault(object):
 
     def disc_cmd(self):
         print('######## CLI Disc CMD')
-        if self.station.stat == 'RR':
-            self.station.ack = [False, False, False]
-            self.station.rej = [False, False]
-            self.station.stat = 'DISC'
-            self.station.n2 = 1
-            self.station.t1 = 0
-            pac = self.get_tx_packet_item()
-            pac['typ'] = ['DISC', True]
-            pac['cmd'] = True
-            self.station.tx = [pac]
+        self.station.port.DISC_TX(self.station.conn_id)
 
     ############################################
     # Default CMD Dict
@@ -365,7 +345,9 @@ class CLITest(CLIFileTransport):
 # class CLINode(CLIDefault):
 class CLINode(CLITest):
     def connect(self):
+        self.station.tx_data += str(self.station.port)
         self.station.tx_data += self.station.promptvar
+        # self.station.port.DISC_TX(self.station.conn_id)
 
     CLIDefault.cmd_dic.update({
         'C': (connect, '(C)onnect to other Station ( Not implemented yet )'),

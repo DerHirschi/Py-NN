@@ -45,6 +45,7 @@ class DefaultParam(AX25Connection):
         self.dest = ['', 0]
         self.via = []
         self.port = None            # Port Obj
+        self.conn_id = ''           # Conn ID Str
         self.tx = []                # TX Buffer (T1)
         self.tx_ctl = []            # CTL TX Buffer (T2)
         self.rx_data = []           # RX Data Buffer
