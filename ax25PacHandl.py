@@ -61,6 +61,7 @@ def set_t1(conn_id):
     else:
         ax_conn[conn_id].t1 = float(((srtt * 3) / 100) + time.time())
     print('#### T1 > ' + str(ax_conn[conn_id].t1 - time.time()))
+    ax_conn[conn_id].deb_calc_t1 = (srtt, ax_conn[conn_id].t1 - time.time())
 
 
 def set_t2(conn_id):
@@ -502,7 +503,7 @@ def REJ_frm(conn_id, pf_bit=False, cmd=False):
 
 #############################################################################
 
-
+# TODO Class Init ( class AX25Functions: )
 def setup_new_conn(conn_id, rx_inp, mycall):
     tmp = Stations[mycall]()
     from_call, to_call = rx_inp['FROM'], rx_inp['TO']

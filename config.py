@@ -34,6 +34,7 @@ class AX25Connection(object):
     n2 = 1
 
 
+# TODO class DefaultParam(AX25Connection, AX25Functions):
 class DefaultParam(AX25Connection):
     def __init__(self):
         self.call = [self.call, self.ssid]
@@ -55,11 +56,16 @@ class DefaultParam(AX25Connection):
         self.t2 = 0
         self.t3 = 0
         self.n2 = 1
+        self.parm_T2 = self.ax25T2 / (self.parm_baud / 100)
+        self.parm_IRTT = (self.parm_T2 + self.ax25TXD) * 2  # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
         self.parm_RTT = self.parm_IRTT
         self.rtt = {
             # vs: time.time()
         }
         self.station_ctexte_var = {}
+        ###################################
+        # Debug !!!
+        self.deb_calc_t1 = 0
         ###################################
         # CLI
         self.cli = None
@@ -100,9 +106,9 @@ class DefaultParam(AX25Connection):
     parm_baud = 1200                    # Baud for RTT Calculation
     parm_T0 = 1200                      # T0 (Response Delay Timer) activated if data come in to prev resp. to early
     # parm_T1 = ax25T1                    # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-    parm_T2 = ax25T2 / (parm_baud / 100)
+    # parm_T2 = ax25T2 / (parm_baud / 100)
     # parm_IRTT = 550                   # Initial-Round-Trip-Time
-    parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
+    # parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
 
     def handle_cli(self):
         if self.cli:

@@ -329,10 +329,35 @@ class CLITest(CLIFileTransport):
         self.station.tx_data += out
         self.station.tx_data += self.station.promptvar
 
+    def rtt_parm(self):
+        def send_parm():
+            # out = 'parm_T2> {}\r'.format(self.station.parm_T2)
+            # out += 'parm_IRTT> {}\r'.format(self.station.parm_IRTT)
+            out = 'parm_RTT> {}\r'.format(self.station.parm_RTT)
+            # out += 'deb_calc_t1> {}\r'.format(self.station.deb_calc_t1)
+            self.station.tx_data += '\r< RTT Parameter >\r\r'
+            self.station.tx_data += out
+            # self.station.tx_data += self.station.promptvar
+        if not self.scr:
+            send_parm()
+            self.tx_cli_msg(' Press Enter for next... ')
+            self.scr_run = False
+            self.scr = [self.rtt_parm, 0]
+        elif self.scr[1] < 3:
+            send_parm()
+            self.tx_cli_msg(' Press Enter for next... ')
+            self.scr[1] += 1
+        else:
+            send_parm()
+            self.tx_cli_msg(' Done !! ')
+            self.scr = []
+            self.scr_run = False
+
     CLIDefault.cmd_dic.update({
         'T1': (testfnc, 'Test Packet sender 1'),
         'T2': (testfnc2, 'Test Packet sender 2'),
         'PA': (sh_parm, 'Show all (Pa)rameters'),
+        'RT': (rtt_parm, 'Show (RT)T Parameters'),
     })
 
 
