@@ -17,29 +17,8 @@ digi_calls = {
 mh = MH()
 
 
-class AX25Connection(object):
-    dest = ['', 0]
-    via = []
-    tx = []                         # TX Packet Buffer (T1)
-    tx_ctl = []                     # TX Ctl Packet Buffer (T2)
-    rx_data = []                    # RX Data Buffer
-    tx_data = ''                    # TX Data Buffer
-    tx_bin = bytearray(0)           # TX Data Buffer for Binary Data
-    stat = ''                       # State ( SABM, RR, DISC )
-    vs = 0
-    vr = 0
-    noAck = []                      # No Ack Packets
-    ack = [False, False, False]     # Send trigger, PF-Bit, CMD
-    rej = [False, False]            # Send trigger, PF-Bit
-    snd_RRt3 = False                # Await respond from RR cmd
-    t1 = 0
-    t2 = 0
-    t3 = 0
-    n2 = 1
-
-
 # TODO class DefaultParam(AX25Connection, AX25Functions):
-class DefaultParam(AX25Connection):
+class DefaultParam(object):
     def __init__(self):
         self.call = [self.call, self.ssid]
         self.dest = ['', 0]
@@ -69,6 +48,9 @@ class DefaultParam(AX25Connection):
             # vs: time.time()
         }
         self.station_ctexte_var = {}
+        ###################################
+        # AXIP
+        self.axip_client = ()     # UDP Client data   ('192.168.178.153', 8099)
         ###################################
         # Debug !!!
         self.deb_calc_t1 = 0
@@ -123,7 +105,16 @@ class DefaultParam(AX25Connection):
 
 class MD3SAW10(DefaultParam):
     call = 'MD3SAW'
-    ssid = 10                                                       # 0 = all
+    ssid = 10
+    ax25PacLen = 250  # Max Pac len
+    ax25MaxFrame = 7  # Max (I) Frames
+    ax25TXD = 1  # TX Delay for RTT Calculation
+    ax25T2 = 2888  # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    ax25T3 = 180000  # TODO T3 (Inactive Link Timer)
+    ax25N2 = 20
+    parm_baud = 9600                    # Baud for RTT Calculation
+    parm_T0 = 120                      # T0 (Response Delay Timer) activated if data come in to prev resp. to early
+
     ctext = 'MD3SAW-10\r' \
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
@@ -163,9 +154,15 @@ class MD4SAW(DefaultParam):
 conf_ax_ports = {
     0: {
         'typ': 'KISS',
-        'port': "/tmp/ptyAX5",
-        'baud': 9600,
-        'stat_list': [DefaultParam, MD3SAW10, MD3SAW11]
+        'parm1': "/tmp/ptyAX5",
+        'parm2': 9600,
+        'stat_list': [DefaultParam, MD3SAW11]
+    },
+1: {
+        'typ': 'AXIP',
+        'parm1': '192.168.178.150',
+        'parm2': 8099,
+        'stat_list': [MD3SAW10]
     },
 }
 

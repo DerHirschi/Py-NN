@@ -1,6 +1,7 @@
 import os
 import time
 import serial
+import socket
 import threading
 import monitor
 from config import *
@@ -12,7 +13,7 @@ p_end = False
 
 
 class AXPort(threading.Thread):
-    def __init__(self, serial_port=("/tmp/ptyAX5", 9600), typ='KISS'):
+    def __init__(self, port_parm=("/tmp/ptyAX5", 9600), typ='KISS'):
         super(AXPort, self).__init__()
         # Globals
         self.timer_T0 = 0
@@ -24,8 +25,13 @@ class AXPort(threading.Thread):
             #      ConnObj
             # }
         }
-        self.ser_port = serial_port[0]
-        self.ser_baud = serial_port[1]
+        self.port_typ = typ
+        if typ == 'KISS':
+            self.ser_port = port_parm[0]
+            self.ser_baud = port_parm[1]
+        elif typ == 'AXIP':
+            self.axip_ip = port_parm[0]
+            self.axip_port = port_parm[1]
         ########################################
         # AX25 Parameters
         self.parm_max_i_frame = int(DefaultParam().parm_max_i_frame)  # Max I-Frame (all connections) per Cycle
@@ -40,44 +46,100 @@ class AXPort(threading.Thread):
         # MAIN LOOP  / Thread
         #############################################################################
         # global test_snd_packet, tx_buffer, timer_T0
-        pack = b''
-        ser = serial.Serial(self.ser_port, self.ser_baud, timeout=0.5)
-        while not p_end:
-            b = ser.read()
-            pack += b
-            if b:  # RX ###################################################################################
-                self.set_t0()
-                # set_t2()
-                if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
-                    monitor.debug_out("----------------Kiss Data IN ----------------------")
-                    dekiss_inp = ax.decode_ax25_frame(pack[2:-1])  # DEKISS
-                    if dekiss_inp:
-                        self.handle_rx(dekiss_inp)
-                        self.timer_T0 = 0
-                        monitor.debug_out('################ DEC END ##############################')
-                    else:
-                        monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
-                    monitor.debug_out("_________________________________________________")
-                    pack = b''
-            self.handle_tx()  # TX #############################################################
-            if self.tx_buffer:
-                # monitor.debug_out(self.ax_conn)
-                n = 0
-                while self.tx_buffer and n < self.parm_MaxBufferTX:
-                    enc = ax.encode_ax25_frame(self.tx_buffer[0])
-                    ax.send_kiss(ser, enc)
-                    mon = ax.decode_ax25_frame(bytes.fromhex(enc))
-                    self.handle_rx(mon)  # Echo TX in Monitor
-                    monitor.debug_out("Out> " + str(mon))
-                    self.tx_buffer = self.tx_buffer[1:]
-                    n += 1
+        if self.port_typ == 'KISS':
+            pack = b''
+            ser = serial.Serial(self.ser_port, self.ser_baud, timeout=0.5)
+            while not p_end:
+                b = ser.read()
+                pack += b
+                if b:  # RX ###################################################################################
+                    self.set_t0()
+                    # set_t2()
+                    if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
+                        monitor.debug_out("----------------Kiss Data IN ----------------------")
+                        dekiss_inp = ax.decode_ax25_frame(pack[2:-1])  # DEKISS
+                        if dekiss_inp:
+                            self.handle_rx(dekiss_inp)
+                            self.timer_T0 = 0
+                            monitor.debug_out('################ DEC END ##############################')
+                        else:
+                            monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
+                        monitor.debug_out("_________________________________________________")
+                        pack = b''
+                self.handle_tx()  # TX #############################################################
+                if self.tx_buffer:
+                    # monitor.debug_out(self.ax_conn)
+                    n = 0
+                    while self.tx_buffer and n < self.parm_MaxBufferTX:
+                        enc = ax.encode_ax25_frame(self.tx_buffer[0][0])
+                        ax.send_kiss(ser, enc)
+                        mon = ax.decode_ax25_frame(bytes.fromhex(enc))
+                        self.handle_rx(mon)  # Echo TX in Monitor
+                        monitor.debug_out("Out> " + str(mon))
+                        self.tx_buffer = self.tx_buffer[1:]
+                        n += 1
 
-            # TESTING
-            """
-            if test_snd_packet != -1 and send_tr:
-                ax.send_kiss(ser, ax.encode_ax25_frame(ax_test_pac[test_snd_packet]))
-                test_snd_packet = -1
-            """
+                # TESTING
+                """
+                if test_snd_packet != -1 and send_tr:
+                    ax.send_kiss(ser, ax.encode_ax25_frame(ax_test_pac[test_snd_packet]))
+                    test_snd_packet = -1
+                """
+        elif self.port_typ == 'AXIP':
+            axip = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+            axip.bind((self.axip_ip, self.axip_port))
+            axip.settimeout(0.5)
+            # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # TODO CRC Last two bytes (x.25 Gen=0x1021 Init=0xFFFF Ref IN/OUT=True)
+            # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            while not p_end:
+                try:
+                    bytesAddressPair = axip.recvfrom(330)
+                    b = bytesAddressPair[0]
+                    address = bytesAddressPair[1]
+                    clientMsg = "Message from Client:{}".format(b)
+                    clientIP = "Client IP Address:{}".format(address)
+                    print(clientMsg)
+                    print(clientIP)
+                    # b = ser.read()
+                    # pack += b
+                    if b:  # RX ###################################################################################
+                        self.set_t0()
+                        # set_t2()
+                        # if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
+                        monitor.debug_out("----------------AXIP Data IN ----------------------")
+                        decode_inp = ax.decode_ax25_frame(b)
+                        if decode_inp:
+                            self.handle_rx(decode_inp, address)
+                            self.timer_T0 = 0
+                            monitor.debug_out('################ DEC END ##############################')
+                        else:
+                            monitor.debug_out("ERROR Dec> " + str(decode_inp), True)
+                        monitor.debug_out("_________________________________________________")
+                        # pack = b''
+
+                except socket.timeout:
+                    pass
+
+                self.handle_tx()  # TX #############################################################
+                if self.tx_buffer:
+                    # monitor.debug_out(self.ax_conn)
+                    n = 0
+                    while self.tx_buffer and n < self.parm_MaxBufferTX:
+                        enc = ax.encode_ax25_frame(self.tx_buffer[0][0])
+                        # ax.send_kiss(ser, enc)
+                        address = self.tx_buffer[0][1]
+                        # print(self.tx_buffer)
+                        axip.sendto(bytes.fromhex(enc), address)
+                        print(enc)
+                        mon = ax.decode_ax25_frame(bytes.fromhex(enc))
+                        self.handle_rx(mon)  # Echo TX in Monitor
+                        monitor.debug_out("Out> " + str(mon))
+                        self.tx_buffer = self.tx_buffer[1:]
+                        n += 1
+                # Sending a reply to client
+                # axip.sendto(bytesToSend, address)
+            axip.close()
 
     def get_tx_packet_item(self, rx_inp=None, conn_id=None):
         if rx_inp:
@@ -133,7 +195,7 @@ class AXPort(threading.Thread):
     def set_t0(self):
         self.timer_T0 = float(self.parm_T0 / 100 + time.time())
 
-    def handle_rx(self, rx_inp):
+    def handle_rx(self, rx_inp, axip_client=()):
         ############################
         # Monitor TODO Better Monitor
         monitor.monitor(rx_inp[1])
@@ -164,9 +226,10 @@ class AXPort(threading.Thread):
                 #########################################################################################
                 # Incoming connection SABM or SABME
                 elif rx_inp[1]['ctl']['hex'] in [0x3f, 0x7f]:              # SABM or SABME p/f True
-                    self.SABM_RX(conn_id, rx_inp=rx_inp[1], owncall=own_call)   # Handle connect Request
+                    self.SABM_RX(conn_id, rx_inp=rx_inp[1], owncall=own_call, axip_cl=axip_client)   # Handle connect Request
                 # Connected Stations
                 elif conn_id in self.ax_conn.keys():
+                    self.ax_conn[conn_id].axip_client = axip_client
                     self.handle_rx_fm_conn(conn_id, rx_inp[1])
                 else:
                     self.DM_TX(rx_inp[1])
@@ -236,7 +299,7 @@ class AXPort(threading.Thread):
     
         # TODO ##############################################################################
         # Maybe extra Buffer or Default Conn_id for Digi to control timing from TXing Packets
-        self.tx_buffer.append(pac)
+        self.tx_buffer.append([pac, ()])
         # TODO ######### tx_buffer.append(pac) Just for testing
 
     def SABM_TX(self):
@@ -276,7 +339,7 @@ class AXPort(threading.Thread):
             print('Busy !! There is still a connection to this Station !!!')
             print('')
 
-    def SABM_RX(self, conn_id, rx_inp, owncall):
+    def SABM_RX(self, conn_id, rx_inp, owncall, axip_cl=()):
         monitor.debug_out('')
         monitor.debug_out('#### Connect Request fm ' + rx_inp['FROM'][0])
         monitor.debug_out(conn_id)
@@ -299,6 +362,7 @@ class AXPort(threading.Thread):
         self.ax_conn[conn_id].snd_RRt3 = False
         self.ax_conn[conn_id].snd_rej = [False, False]
         self.ax_conn[conn_id].ack = [False, False, False]
+        self.ax_conn[conn_id].axip_client = axip_cl
         # Set State to Receive Ready
         self.ax_conn[conn_id].stat = 'RR'
         # Answering Conn Req (UA).
@@ -387,7 +451,7 @@ class AXPort(threading.Thread):
             if rx_inp['ctl']['pf']:
                 self.ax_conn[conn_id].ack = [False, True, False]
                 # Send single RR if P Bit is received
-                self.tx_buffer.append(self.RR_frm(conn_id))
+                self.tx_buffer.append([self.RR_frm(conn_id), self.ax_conn[conn_id].axip_client])
             else:
                 self.ax_conn[conn_id].ack = [True, self.ax_conn[conn_id].ack[1], False]
     
@@ -407,7 +471,7 @@ class AXPort(threading.Thread):
         return True
     
     def DM_TX(self, rx_inp, pf_bit=True):    # !!!!!!!!!!! Dummy. !! Not Tested  !!!!!!!!!!!!!
-        self.tx_buffer.append(self.DM_frm(rx_inp, pf_bit))
+        self.tx_buffer.append([self.DM_frm(rx_inp, pf_bit), ()])
         # Will send if Station is Busy or can't request SABM or receive any other Pac as SABM, UI
         # Also will send to confirm a UI Pac if station is not connected
 
@@ -452,11 +516,11 @@ class AXPort(threading.Thread):
             # ax_conn[conn_id].noAck = []
             self.ax_conn[conn_id].tx = [self.DISC_frm(conn_id)]
         elif self.ax_conn[conn_id].stat == 'SABM':
-            self.tx_buffer.append(self.DISC_frm(conn_id))
+            self.tx_buffer.append([self.DISC_frm(conn_id), self.ax_conn[conn_id].axip_client])
             self.ax_conn[conn_id] = None
             del self.ax_conn[conn_id]
         elif self.ax_conn[conn_id].stat == 'DISC' and self.ax_conn[conn_id].n2 > self.ax_conn[conn_id].ax25N2:
-            self.tx_buffer.append(self.DISC_frm(conn_id))
+            self.tx_buffer.append([self.DISC_frm(conn_id), self.ax_conn[conn_id].axip_client])
             self.ax_conn[conn_id] = None
             del self.ax_conn[conn_id]
 
@@ -468,11 +532,11 @@ class AXPort(threading.Thread):
         print(conn_id)
         # Answering DISC
         if conn_id in self.ax_conn.keys():
-            self.tx_buffer.append(self.UA_frm(rx_inp))       # UA_TX
+            self.tx_buffer.append([self.UA_frm(rx_inp), self.ax_conn[conn_id].axip_client])       # UA_TX
             self.ax_conn[conn_id] = None
             del self.ax_conn[conn_id]
         else:
-            self.tx_buffer.append(self.DM_frm(rx_inp))
+            self.tx_buffer.append([self.DM_frm(rx_inp), self.ax_conn[conn_id].axip_client])
 
     #######################################################################
 
@@ -558,6 +622,7 @@ class AXPort(threading.Thread):
         tmp.snd_rej = [False, False]
         tmp.ack = [False, False, False]
         tmp.port = self
+        # tmp.port_typ = self.port_typ
         tmp.conn_id = conn_id
         self.ax_conn[conn_id] = tmp
         self.set_t3(conn_id)
@@ -599,7 +664,7 @@ class AXPort(threading.Thread):
             ######################################################
             # Send Ack if not sendet with I Frame
             elif self.ax_conn[id_in].ack[0]:
-                self.tx_buffer.append(self.RR_frm(id_in))
+                self.tx_buffer.append([self.RR_frm(id_in), self.ax_conn[id_in].axip_client])
     #############################################################################
 
     def handle_tx(self):
@@ -645,7 +710,7 @@ class AXPort(threading.Thread):
                     # CTL Frames ( Not T1 controlled ) just T2
                     tx_ctl = list(self.ax_conn[conn_id].tx_ctl)
                     for el in tx_ctl:
-                        self.tx_buffer.append(el)
+                        self.tx_buffer.append([el, self.ax_conn[conn_id].axip_client])
                         self.ax_conn[conn_id].tx_ctl = self.ax_conn[conn_id].tx_ctl[1:]
                         pac_c += 1
                         if self.ax_conn[conn_id].snd_RRt3:
@@ -688,7 +753,7 @@ class AXPort(threading.Thread):
     
                                     max_i_frame_c_f_all_conns += 1
                                     # max_f += 1
-                                self.tx_buffer.append(el)
+                                self.tx_buffer.append([el, self.ax_conn[conn_id].axip_client])
                                 snd_tr = True
                                 pac_c += 1
     
@@ -704,7 +769,7 @@ class AXPort(threading.Thread):
                         # set_t2(conn_id)
                         self.set_t3(conn_id)
                         self.ax_conn[conn_id].n2 = n2 + 1
-    
+
             ######################################################
             # Send Discs
             for dk in disc_keys:
@@ -739,7 +804,7 @@ else:
     # Init
 
     for k in conf_ax_ports.keys():
-        ax_ports[k] = AXPort((conf_ax_ports[k]['port'], conf_ax_ports[k]['baud']), conf_ax_ports[k]['typ'])
+        ax_ports[k] = AXPort((conf_ax_ports[k]['parm1'], conf_ax_ports[k]['parm2']), conf_ax_ports[k]['typ'])
         for stat in conf_ax_ports[k]['stat_list']:
             if stat.ssid:
                 call_str = ax.get_call_str(stat.call, stat.ssid)
@@ -835,7 +900,7 @@ else:
             #################################################################
 
             elif i.upper() == 'TB':     # Test Beacon
-                kiss.tx_buffer = ax_test_pac
+                kiss.tx_buffer = [ax_test_pac, ()]
                 print("OK ..")
 
             elif i.upper() == 'S':

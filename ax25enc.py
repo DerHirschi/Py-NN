@@ -275,6 +275,7 @@ def decode_ax25_frame(data_in):
         if ret['ctl']['info']:
             ret['data'] = [tmp_str2, len(tmp_str2)]                 # TODO chr() ?
     ret['via'] = via
+    print('## DATA IN > ' + str(bytearray2hexstr(data_in)) + ' --- HEX> ' + str(bytearray2hexstr(tmp_str2[-2:])))
     for ke in ['TO', 'FROM', 'ctl']:         # Little Check Frame is plausible TODO better check
         if not ret[ke]:
             monitor.debug_out('"-------------- ERROR beim Decoden !! -------------"', True)
