@@ -5,9 +5,13 @@ from ax25Statistics import MH
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
 # Globals
-Stations = {}
-digi_calls = []
-cli_calls = []
+ax_ports = {
+    # 0: PortObj
+}
+# Stations = {}
+digi_calls = {
+    # 'callstr': AxPort
+}
 #################################
 # Init MH
 mh = MH()
@@ -40,6 +44,7 @@ class DefaultParam(AX25Connection):
         self.call = [self.call, self.ssid]
         self.dest = ['', 0]
         self.via = []
+        self.port = None            # Port Obj
         self.tx = []                # TX Buffer (T1)
         self.tx_ctl = []            # CTL TX Buffer (T2)
         self.rx_data = []           # RX Data Buffer
@@ -151,26 +156,31 @@ class MD4SAW(DefaultParam):
     ax25N2 = 5                          # Max Try   Default 20
 
 
-########################################
-# AX25 Parameters
-# parm_max_i_frame = int(DefaultParam().parm_max_i_frame)     # Max I-Frame (all connections) per Cycle
-# parm_T0 = int(DefaultParam().parm_T0)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-# parm_T2 = int(DefaultParam().parm_T2)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-# parm_MaxBufferTX = int(DefaultParam().parm_MaxBufferTX)     # Max Frames to send from Buffer
-
-stat_list = [DefaultParam, MD3SAW10, MD3SAW11]
+# stat_list = [DefaultParam, MD3SAW10, MD3SAW11]
 
 
+conf_ax_ports = {
+    0: {
+        'typ': 'KISS',
+        'port': "/tmp/ptyAX5",
+        'baud': 9600,
+        'stat_list': [DefaultParam, MD3SAW10, MD3SAW11]
+    },
+}
+
+
+"""
 def conf_stations():
+
     #################################################
     # INIT Vars
-    """
+    '''
     Stations = {
         'MD3SAW-10': MD3SAW10(),
         'MD3SAW-11': MD3SAW11(),
         'MD4SAW': MD4SAW(),
     }
-    """
+    '''
     for obj in stat_list:
         if obj.ssid:
             call_str = ax.get_call_str(obj.call, obj.ssid)
@@ -188,7 +198,7 @@ def conf_stations():
                 if obj.digi:
                     digi_calls.append([obj.call, ssid])
 
-
+"""
 ################################
 # TEST DATA
 ax_test_pac = [{
@@ -239,11 +249,3 @@ pid
 7 = 11111111 Fluchtsymbol, das nächste Byte enthält weitere Layer 3 Protokoll Informationen.
 '''
 
-if __name__ == '__main__':
-    conf_stations()
-    # a = StationParam()
-    # print(a.prompt)
-    print(vars(Stations['MD3SAW-11']))
-    # print(Stations['MD3SAW-11'].call)
-    # print(a.prompt)
-    # conf_stations()
