@@ -153,10 +153,10 @@ class MD4SAW(DefaultParam):
 
 ########################################
 # AX25 Parameters
-parm_max_i_frame = int(DefaultParam().parm_max_i_frame)     # Max I-Frame (all connections) per Cycle
-parm_T0 = int(DefaultParam().parm_T0)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-parm_T2 = int(DefaultParam().parm_T2)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-parm_MaxBufferTX = int(DefaultParam().parm_MaxBufferTX)     # Max Frames to send from Buffer
+# parm_max_i_frame = int(DefaultParam().parm_max_i_frame)     # Max I-Frame (all connections) per Cycle
+# parm_T0 = int(DefaultParam().parm_T0)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
+# parm_T2 = int(DefaultParam().parm_T2)   # T0 (Response Delay Timer) activated if data come in to prev resp. to early
+# parm_MaxBufferTX = int(DefaultParam().parm_MaxBufferTX)     # Max Frames to send from Buffer
 
 stat_list = [DefaultParam, MD3SAW10, MD3SAW11]
 
