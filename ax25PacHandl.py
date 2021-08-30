@@ -91,7 +91,7 @@ class AXPort(threading.Thread):
             axip.settimeout(0.5)
             while not p_end:
                 try:
-                    bytesAddressPair = axip.recvfrom(330)
+                    bytesAddressPair = axip.recvfrom(332)
                     b = bytesAddressPair[0]
                     address = bytesAddressPair[1]
                     clientMsg = "Message from Client:{}".format(b)
@@ -106,8 +106,9 @@ class AXPort(threading.Thread):
                         crc = int(ax.bytearray2hexstr(crc[::-1]), 16)
                         msg = b[:-2]
                         calc_crc = ax.crc_x25(msg)
+                        ###################################
                         if calc_crc == crc:
-                            self.set_t0()
+                            # self.set_t0()
                             # set_t2()
                             # if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
                             monitor.debug_out("----------------AXIP Data IN ----------------------")
@@ -133,26 +134,18 @@ class AXPort(threading.Thread):
                     while self.tx_buffer and n < self.parm_MaxBufferTX:
                         enc = ax.encode_ax25_frame(self.tx_buffer[0][0])
                         address = self.tx_buffer[0][1]
-                        # print(self.tx_buffer)
                         ###################################
                         # CRC
                         enc = bytes.fromhex(enc)
                         calc_crc = ax.crc_x25(enc)
-                        print('## CRC1> ' + str(calc_crc))
-                        print('## CRC2> ' + str(hex(calc_crc)))
-                        print('## CRC3> ' + str(hex(calc_crc)[2:]))
-                        print('## CRC4> ' + str(bytes.fromhex(hex(calc_crc)[2:].zfill(4))))
-                        print('## CRC5> ' + str(bytes.fromhex(hex(calc_crc)[2:].zfill(4))[::-1]))
                         calc_crc = bytes.fromhex(hex(calc_crc)[2:].zfill(4))[::-1]
+                        ###################################
                         axip.sendto(enc + calc_crc, address)
-                        # print(enc)
                         mon = ax.decode_ax25_frame(enc)
                         self.handle_rx(mon)  # Echo TX in Monitor
                         monitor.debug_out("Out> " + str(mon))
                         self.tx_buffer = self.tx_buffer[1:]
                         n += 1
-                # Sending a reply to client
-                # axip.sendto(bytesToSend, address)
             axip.close()
 
     def get_tx_packet_item(self, rx_inp=None, conn_id=None):
@@ -218,9 +211,6 @@ class AXPort(threading.Thread):
         mh.mh_inp(rx_inp)
         conn_id = ax.reverse_addr_str(rx_inp[0])
         own_call = rx_inp[0].split(':')[0]
-        # TODO ###################################
-        # TODO !! Init Station.keys to this class
-        # TODO ###################################
         if own_call in self.ax_Stations.keys():
             '''
             if rx_inp[1]['via'] and all(not el[2] for el in rx_inp[1]['via']):
@@ -232,7 +222,7 @@ class AXPort(threading.Thread):
             if not rx_inp[1]['via'] or all(el[2] for el in rx_inp[1]['via']):
                 # Incoming DISC
                 if rx_inp[1]['ctl']['hex'] == 0x53:     # DISC p/f True
-                    self.DISC_RX(conn_id, rx_inp=rx_inp[1])  # Handle DISC Request
+                    self.DISC_RX(conn_id, rx_inp=rx_inp[1], axip_client=axip_client)  # Handle DISC Request
                 #########################################################################################
                 # Incoming UI
                 # elif inp[1]['ctl']['hex'] == 0x13:                      # UI p/f True
@@ -246,7 +236,7 @@ class AXPort(threading.Thread):
                     self.ax_conn[conn_id].axip_client = axip_client
                     self.handle_rx_fm_conn(conn_id, rx_inp[1])
                 else:
-                    self.DM_TX(rx_inp[1])
+                    self.DM_TX(rx_inp[1], axip_client=axip_client)
     
         ################################################
         # DIGI
@@ -484,8 +474,8 @@ class AXPort(threading.Thread):
         self.ax_conn[conn_id].n2 = 1
         return True
     
-    def DM_TX(self, rx_inp, pf_bit=True):    # !!!!!!!!!!! Dummy. !! Not Tested  !!!!!!!!!!!!!
-        self.tx_buffer.append([self.DM_frm(rx_inp, pf_bit), ()])
+    def DM_TX(self, rx_inp, pf_bit=True, axip_client=()):    # !!!!!!!!!!! Dummy. !! Not Tested  !!!!!!!!!!!!!
+        self.tx_buffer.append([self.DM_frm(rx_inp, pf_bit), axip_client])
         # Will send if Station is Busy or can't request SABM or receive any other Pac as SABM, UI
         # Also will send to confirm a UI Pac if station is not connected
 
@@ -538,7 +528,7 @@ class AXPort(threading.Thread):
             self.ax_conn[conn_id] = None
             del self.ax_conn[conn_id]
 
-    def DISC_RX(self, conn_id, rx_inp):
+    def DISC_RX(self, conn_id, rx_inp, axip_client=()):
         monitor.debug_out('')
         monitor.debug_out('#### DISCO Request ..... ######')
         monitor.debug_out(conn_id)
@@ -550,7 +540,7 @@ class AXPort(threading.Thread):
             self.ax_conn[conn_id] = None
             del self.ax_conn[conn_id]
         else:
-            self.tx_buffer.append([self.DM_frm(rx_inp), self.ax_conn[conn_id].axip_client])
+            self.tx_buffer.append([self.DM_frm(rx_inp), axip_client])
 
     #######################################################################
 
