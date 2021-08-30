@@ -158,12 +158,15 @@ conf_ax_ports = {
         'typ': 'KISS',
         'parm1': "/tmp/ptyAX5",
         'parm2': 9600,
+        'name': 'Port 0',
         'stat_list': [DefaultParam, MD3SAW11]
     },
     1: {
         'typ': 'AXIP',
         'parm1': '192.168.178.150',     # Own Address
         'parm2': 8099,                  #
+        'name': 'Port 1 AXIP',
+        'bcast': True,                  # AXIP Broadcast Server (Send icomming Traffic out to all other AXIP Clients)
         'stat_list': [MD3SAW10]
     },
 }

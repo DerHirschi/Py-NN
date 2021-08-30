@@ -33,6 +33,7 @@ class AXPort(threading.Thread):
         elif self.port_typ == 'AXIP':
             self.axip_ip = conf_ax_ports[port_conf_id]['parm1']
             self.axip_port = conf_ax_ports[port_conf_id]['parm2']
+            self.axip_bcast = conf_ax_ports[port_conf_id]['bcast']
         ########################################
         # AX25 Parameters
         self.parm_max_i_frame = int(DefaultParam().parm_max_i_frame)  # Max I-Frame (all connections) per Cycle
@@ -118,6 +119,10 @@ class AXPort(threading.Thread):
                                 self.handle_rx(decode_inp, address)
                                 self.timer_T0 = 0
                                 monitor.debug_out('################ DEC END ##############################')
+                                if self.axip_bcast:
+                                    for ke in self.ax_conn.keys():
+                                        addr = self.ax_conn[ke].axip_client
+                                        axip.sendto(b, addr)
                             else:
                                 monitor.debug_out("ERROR Dec> " + str(decode_inp), True)
                             # pack = b''
@@ -141,7 +146,12 @@ class AXPort(threading.Thread):
                         calc_crc = ax.crc_x25(enc)
                         calc_crc = bytes.fromhex(hex(calc_crc)[2:].zfill(4))[::-1]
                         ###################################
-                        axip.sendto(enc + calc_crc, address)
+                        if self.axip_bcast:
+                            for ke in self.ax_conn.keys():
+                                addr = self.ax_conn[ke].axip_client
+                                axip.sendto(enc + calc_crc, addr)
+                        else:
+                            axip.sendto(enc + calc_crc, address)
                         mon = ax.decode_ax25_frame(enc)
                         self.handle_rx(mon)  # Echo TX in Monitor
                         monitor.debug_out("Out> " + str(mon))
