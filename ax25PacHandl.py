@@ -95,10 +95,10 @@ class AXPort(threading.Thread):
                     bytesAddressPair = axip.recvfrom(332)
                     b = bytesAddressPair[0]
                     address = bytesAddressPair[1]
-                    clientMsg = "Message from Client:{}".format(b)
-                    clientIP = "Client IP Address:{}".format(address)
-                    print(clientMsg)
-                    print(clientIP)
+                    # clientMsg = "Message from Client:{}".format(b)
+                    # clientIP = "Client IP Address:{}".format(address)
+                    # print(clientMsg)
+                    # print(clientIP)
 
                     if b:  # RX ###################################################################################
                         ###################################
@@ -209,7 +209,7 @@ class AXPort(threading.Thread):
         monitor.monitor(rx_inp[1], self.port_id)
         ############################
         # MH List and Statistics
-        mh.mh_inp(rx_inp)
+        mh.mh_inp(rx_inp, self.port_id)
         conn_id = ax.reverse_addr_str(rx_inp[0])
         own_call = rx_inp[0].split(':')[0]
         if own_call in self.ax_Stations.keys():

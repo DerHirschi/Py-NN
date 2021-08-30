@@ -110,8 +110,8 @@ class MD3SAW10(DefaultParam):
     ssid = 10
     ax25PacLen = 250    # Max Pac len
     ax25MaxFrame = 7    # Max (I) Frames
-    ax25TXD = 5000      # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation
-    ax25T2 = 1          # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    ax25TXD = 500       # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation
+    ax25T2 = 3          # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
     ax25T3 = 180000     # T3 (Inactive Link Timer)
     ax25N2 = 20
     parm_baud = 1200    # Baud for RTT Calculation  !! Need to be low on AXIP for T1 calculation

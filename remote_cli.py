@@ -132,13 +132,16 @@ class CLIFileTransport(CLIDefault):
             file = open('test.gz', 'rb')
             f_out = file.read()
             file.close()
-            self.station.tx_data += '\r#BIN#' + str(len(f_out)) + '##test.gz'
+            self.station.tx_data += '\r#BIN#' + str(len(f_out)) + '\r'
 
             # Init Fnc Count
-            self.scr_run = True
+            self.scr_run = False
             self.scr = [self.ft_dn, 0]
         elif self.scr[1] == 0:
-            if not self.station.noAck and not self.station.tx_data:
+            inp = self.cmd_inp[0]
+            print(inp)
+            if inp == '#OK#':
+                # if not self.station.noAck and not self.station.tx_data:
                 file = open('test.gz', 'rb')
                 f_out = file.read()
                 file.close()
@@ -147,14 +150,39 @@ class CLIFileTransport(CLIDefault):
                 self.scr = [self.ft_dn, 1]
         elif self.scr[1] == 1:
             if not self.station.noAck and not self.station.tx_bin:
-                self.station.tx_data += '\r#OK#\r'
+                self.station.tx_data += '#OK#\r'
                 self.tx_cli_msg(' Done ! ')
                 self.scr_run = False
                 self.scr = []
+
+    def ft_dt(self):
+        f_out = b'123456789'
+
+        if not self.scr:
+            self.station.tx_data += '\r#BIN#' + str(len(f_out)) + '\r'
+            # Init Fnc Count
+            self.scr_run = False
+            self.scr = [self.ft_dt, 0]
+        elif self.scr[1] == 0:
+            inp = self.cmd_inp[0]
+            print(inp)
+            if inp == '#OK#':
+                # if not self.station.noAck and not self.station.tx_data:
+                self.station.tx_bin += f_out
+                self.scr_run = True
+                self.scr = [self.ft_dt, 1]
+        elif self.scr[1] == 1:
+            if not self.station.noAck and not self.station.tx_bin:
+                self.station.tx_data += '#OK#\r'
+                self.tx_cli_msg(' Done ! ')
+                self.scr_run = False
+                self.scr = []
+
     CLIDefault.cmd_dic.update({
 
         'UP': (ft_up, '(Up)load Test File'),
         'DO': (ft_dn, '(Do)wnload Test File'),
+        'DT': (ft_dt, '(D)wnload (T)est Data (b"123456789")'),
     })
 
 
@@ -169,7 +197,7 @@ class CLITest(CLIFileTransport):
     def testfnc(self):
         if not self.scr:
             self.station.tx_data += '\r< Test Packet Sender >'
-            self.station.tx_data += '\r< How many Test-Packets should be sent? Enter Digit Number. (Max 40) >'
+            self.station.tx_data += '\r< How many Test-Packets should be sent? Enter Digit Number. (Max 500) >'
             self.tx_cli_msg(' Enter A to abort. ')
             # Init Fnc Count
             self.scr_run = False
@@ -179,14 +207,14 @@ class CLITest(CLIFileTransport):
             if n.isdigit():
                 self.station.tx_data += '\r< How big should the packages be? Enter Digit Number. (Max 250) >'
                 self.tx_cli_msg(' Enter A to abort. ')
-                n = max(min(int(n), 40), 1)
+                n = max(min(int(n), 500), 1)
                 self.scr.append(n)
             elif n.upper() == 'A':
                 self.tx_cli_msg(' Canceled !! ')
                 self.scr = []
             else:
-                self.station.tx_data += '\r< Please enter Digit Number from 1 to 40 or A for Abort >'
-                self.tx_cli_msg(' How many Test-Packets should be sent? Enter Digit Number. (Max 40) ')
+                self.station.tx_data += '\r< Please enter Digit Number from 1 to 500 or A for Abort >'
+                self.tx_cli_msg(' How many Test-Packets should be sent? Enter Digit Number. (Max 500) ')
                 self.scr = [self.testfnc, 0]
         elif self.scr[1] == 2:
             n2 = self.cmd_inp[0]

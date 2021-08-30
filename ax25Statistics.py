@@ -12,7 +12,7 @@ class MH(object):
         }
         """
 
-    def mh_inp(self, rx_in):
+    def mh_inp(self, rx_in, port_id):
         """
         #########################
         # Connections
@@ -33,6 +33,7 @@ class MH(object):
             self.calls[call_str] = {
                 'from': call_str,
                 'to': [get_call_str(rx_in[1]['TO'][0], rx_in[1]['TO'][1])],
+                'port': port_id,
                 'first_seen': (time.time(), time.localtime()),
                 'last_seen': (time.time(), time.localtime()),
                 'pac_n': 1,         # N Packets
@@ -46,6 +47,7 @@ class MH(object):
                 self.calls[call_str]['rej_n'] = 1
         else:
             self.calls[call_str]['pac_n'] += 1
+            self.calls[call_str]['port'] = port_id
             self.calls[call_str]['byte_n'] += rx_in[2]
             self.calls[call_str]['last_seen'] = (time.time(), time.localtime())
             to_c_str = get_call_str(rx_in[1]['TO'][0], rx_in[1]['TO'][1])
@@ -65,7 +67,10 @@ class MH(object):
         tb = 0
         rj = 0
         for call in list(self.calls.keys()):
-            out += '{:8} S {} '.format(round(time.time() - self.calls[call]['last_seen'][0]), call)
+            out += 'P:{}> {:5} S {} {:4}'.format(self.calls[call]['port'],
+                                                round(time.time() - self.calls[call]['last_seen'][0]),
+                                                call,
+                                                '')
             tp += self.calls[call]['pac_n']
             tb += self.calls[call]['byte_n']
             rj += self.calls[call]['rej_n']
