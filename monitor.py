@@ -7,7 +7,7 @@ error_f = 'error.txt'
 debug = True
 
 
-def monitor(data):
+def monitor(data, port):
     data = dict(data)
     db_c = 0
     if debug:
@@ -16,7 +16,7 @@ def monitor(data):
     f = open(mon_f, 'a')
     out = ''
     now = datetime.now()  # current date and time
-    out += now.strftime("%d/%m/%Y %H:%M:%S> ")
+    out += now.strftime("%d/%m/%Y %H:%M:%S-{}> ".format(port))
     if len(data['FROM']) != 0:
         out += data['FROM'][0].replace(' ', '')
         if data['FROM'][1]:

@@ -17,13 +17,17 @@ digi_calls = {
 mh = MH()
 
 
-# TODO class DefaultParam(AX25Connection, AX25Functions):
 class DefaultParam(object):
     def __init__(self):
         self.call = [self.call, self.ssid]
         self.dest = ['', 0]
         self.via = []
         self.port = None            # Port Obj
+        self.port_conf_id = 0       # conf_ax_ports
+        ###################################
+        # AXIP
+        self.axip_client = ()       # UDP Client data   ('192.168.178.153', 8099)
+        ###################################
         self.conn_id = ''           # Conn ID Str
         self.tx = []                # TX Buffer (T1)
         self.tx_ctl = []            # CTL TX Buffer (T2)
@@ -48,9 +52,6 @@ class DefaultParam(object):
             # vs: time.time()
         }
         self.station_ctexte_var = {}
-        ###################################
-        # AXIP
-        self.axip_client = ()     # UDP Client data   ('192.168.178.153', 8099)
         ###################################
         # Debug !!!
         self.deb_calc_t1 = 0
@@ -159,10 +160,10 @@ conf_ax_ports = {
         'parm2': 9600,
         'stat_list': [DefaultParam, MD3SAW11]
     },
-1: {
+    1: {
         'typ': 'AXIP',
-        'parm1': '192.168.178.150',
-        'parm2': 8099,
+        'parm1': '192.168.178.150',     # Own Address
+        'parm2': 8099,                  #
         'stat_list': [MD3SAW10]
     },
 }

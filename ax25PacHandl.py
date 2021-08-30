@@ -13,7 +13,7 @@ p_end = False
 
 
 class AXPort(threading.Thread):
-    def __init__(self, port_parm=("/tmp/ptyAX5", 9600), typ='KISS'):
+    def __init__(self, port_conf_id=0):
         super(AXPort, self).__init__()
         # Globals
         self.timer_T0 = 0
@@ -25,13 +25,14 @@ class AXPort(threading.Thread):
             #      ConnObj
             # }
         }
-        self.port_typ = typ
-        if typ == 'KISS':
-            self.ser_port = port_parm[0]
-            self.ser_baud = port_parm[1]
-        elif typ == 'AXIP':
-            self.axip_ip = port_parm[0]
-            self.axip_port = port_parm[1]
+        self.port_id = port_conf_id
+        self.port_typ = conf_ax_ports[port_conf_id]['typ']
+        if self.port_typ == 'KISS':
+            self.ser_port = conf_ax_ports[port_conf_id]['parm1']
+            self.ser_baud = conf_ax_ports[port_conf_id]['parm2']
+        elif self.port_typ == 'AXIP':
+            self.axip_ip = conf_ax_ports[port_conf_id]['parm1']
+            self.axip_port = conf_ax_ports[port_conf_id]['parm2']
         ########################################
         # AX25 Parameters
         self.parm_max_i_frame = int(DefaultParam().parm_max_i_frame)  # Max I-Frame (all connections) per Cycle
@@ -205,7 +206,7 @@ class AXPort(threading.Thread):
     def handle_rx(self, rx_inp, axip_client=()):
         ############################
         # Monitor TODO Better Monitor
-        monitor.monitor(rx_inp[1])
+        monitor.monitor(rx_inp[1], self.port_id)
         ############################
         # MH List and Statistics
         mh.mh_inp(rx_inp)
@@ -247,7 +248,7 @@ class AXPort(threading.Thread):
                 print('DIGI > ' + str(rx_inp[0]))
                 v[2] = True
                 port = digi_calls[c_str]
-                port.DigiPeating(rx_inp[1])
+                port.DigiPeating(rx_inp[1], axip_cl=axip_client)
                 break
             elif not v[2] and (c_str not in digi_calls.keys()):
                 break
@@ -287,7 +288,7 @@ class AXPort(threading.Thread):
         print('~~~~~~RX IN~~~~~~~~~~~~~~')
         print('')
 
-    def DigiPeating(self, rx_inp):
+    def DigiPeating(self, rx_inp, axip_cl=()):
         print('###### DIGI FNC > ' + str(rx_inp))
         pac = {
             'call': rx_inp['FROM'],
@@ -303,7 +304,7 @@ class AXPort(threading.Thread):
     
         # TODO ##############################################################################
         # Maybe extra Buffer or Default Conn_id for Digi to control timing from TXing Packets
-        self.tx_buffer.append([pac, ()])
+        self.tx_buffer.append([pac, axip_cl])
         # TODO ######### tx_buffer.append(pac) Just for testing
 
     def SABM_TX(self):
@@ -804,16 +805,19 @@ else:
     sel_station = ''
 
     os.system('clear')
-    #####################
-    # Init
+    #####################################################################################
+    # Init Ports and Stations ( Calls )
+    #####################################################################################
 
     for k in conf_ax_ports.keys():
-        ax_ports[k] = AXPort((conf_ax_ports[k]['parm1'], conf_ax_ports[k]['parm2']), conf_ax_ports[k]['typ'])
+        # Ports
+        ax_ports[k] = AXPort(k)
         for stat in conf_ax_ports[k]['stat_list']:
+            # Stations
             if stat.ssid:
                 call_str = ax.get_call_str(stat.call, stat.ssid)
                 stat.call_str = call_str
-                # stat.port = ax_ports[k]
+                stat.port_conf_id = k
                 ax_ports[k].ax_Stations[call_str] = stat
                 if stat.digi:
                     # digi_calls.append([[stat.call, stat.ssid], ax_ports[k]])
@@ -825,11 +829,14 @@ else:
                 for ssid in range(16):
                     call_str = ax.get_call_str(stat.call, ssid)
                     stat.call_str = call_str
-                    # stat.port = ax_ports[k]
+                    stat.port_conf_id = k
                     ax_ports[k].ax_Stations[call_str] = stat
                     if stat.digi:
                         digi_calls[call_str] = ax_ports[k]
         ax_ports[k].start()
+    #####################################################################################
+    # Init END !!!
+    #####################################################################################
 
     # ax_ports[k].ax_Stations
     # kiss = AXPort(("/tmp/ptyAX5", 9600))
@@ -851,6 +858,7 @@ else:
                       "B  = Print TX-Buffer\n\r"
                       "R  = Print RX-Buffer\n\r"
                       "RD = Delete RX-Buffer\n\r"
+                      "P  = Show Ports\n\r"
                       "C  = conncet\n\r"
                       "D  = Disconnect all Stations\n\r"
                       "DS = Disconnect selected Station\n\r"
@@ -859,15 +867,19 @@ else:
                       "SL = Send Packet Loop of 7 Pacs\n\r"
                       "\n\r> ")
             if i.upper() == 'Q':
-                kiss.disc_all_stations()
+                for k in ax_ports.keys():
+                    ax_ports[k].disc_all_stations()
+                # kiss.disc_all_stations()
                 p_end = True
                 break
             else:
                 os.system('clear')
 
             if i.upper() == 'D':
-                print('############  Disc send to : ' + str(kiss.ax_conn.keys()))
-                kiss.disc_all_stations()
+                for k in ax_ports.keys():
+                    print('############  Disc send to : ' + str(ax_ports[k].ax_conn.keys()))
+                    ax_ports[k].disc_all_stations()
+                # kiss.disc_all_stations()
             elif i.upper() == 'ST':
                 c = 1
                 print('')

@@ -129,17 +129,17 @@ class CLIFileTransport(CLIDefault):
 
     def ft_dn(self):
         if not self.scr:
-            file = open('test.tar.gz', 'rb')
+            file = open('test.gz', 'rb')
             f_out = file.read()
             file.close()
-            self.station.tx_data += '\r#BIN#' + str(len(f_out)) + '##test.tar.gz'
+            self.station.tx_data += '\r#BIN#' + str(len(f_out)) + '##test.gz'
 
             # Init Fnc Count
             self.scr_run = True
             self.scr = [self.ft_dn, 0]
         elif self.scr[1] == 0:
             if not self.station.noAck and not self.station.tx_data:
-                file = open('test.tar.gz', 'rb')
+                file = open('test.gz', 'rb')
                 f_out = file.read()
                 file.close()
                 self.station.tx_bin += f_out
