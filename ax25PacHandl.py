@@ -33,6 +33,7 @@ class AXPort(threading.Thread):
         elif self.port_typ == 'AXIP':
             self.axip_ip = conf_ax_ports[port_conf_id]['parm1']
             self.axip_port = conf_ax_ports[port_conf_id]['parm2']
+            self.ip_rx_buff = ()
         ########################################
         # AX25 Parameters
         self.parm_max_i_frame = int(DefaultParam().parm_max_i_frame)  # Max I-Frame (all connections) per Cycle
@@ -90,15 +91,32 @@ class AXPort(threading.Thread):
             axip = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             axip.bind((self.axip_ip, self.axip_port))
             axip.settimeout(0.5)
+
+            def read_axip_th():
+                # ip_rx_buff = ()
+
+                while not p_end:
+                    if not self.ip_rx_buff:
+                        try:
+                            self.ip_rx_buff = axip.recvfrom(332)
+                        except socket.timeout:
+                            self.ip_rx_buff = (b'',())
+                axip.close()
+            # Real Full Duplex
+            th = threading.Thread(target=read_axip_th).start()
+
             while not p_end:
-                try:
-                    bytesAddressPair = axip.recvfrom(332)
+                # try:
+                # bytesAddressPair = axip.recvfrom(332)
+                if self.ip_rx_buff:
+                    bytesAddressPair = self.ip_rx_buff
+                    self.ip_rx_buff = ()
                     b = bytesAddressPair[0]
                     address = bytesAddressPair[1]
-                    clientMsg = "Message from Client:{}".format(b)
-                    clientIP = "Client IP Address:{}".format(address)
-                    print(clientMsg)
-                    print(clientIP)
+                    # clientMsg = "Message from Client:{}".format(b)
+                    # clientIP = "Client IP Address:{}".format(address)
+                    # print(clientMsg)
+                    # print(clientIP)
 
                     if b:  # RX ###################################################################################
                         ###################################
@@ -125,8 +143,8 @@ class AXPort(threading.Thread):
                             monitor.debug_out("ERROR CRC AXIP> " + str(b), True)
                             monitor.debug_out("_________________________________________________")
 
-                except socket.timeout:
-                    pass
+                    # except socket.timeout:
+                    #     pass
 
                 self.handle_tx()  # TX #############################################################
                 if self.tx_buffer:
@@ -147,7 +165,9 @@ class AXPort(threading.Thread):
                         monitor.debug_out("Out> " + str(mon))
                         self.tx_buffer = self.tx_buffer[1:]
                         n += 1
-            axip.close()
+                else:
+                    time.sleep(0.1)
+            # axip.close()
 
     def get_tx_packet_item(self, rx_inp=None, conn_id=None):
         if rx_inp:
@@ -853,7 +873,7 @@ else:
                       "0-5 = Send Packet\n\r"
                       "T  = Fill TX Buffer with Testdata\n\r"
                       "TB = Test Beacon (UI Packet)\n\r"
-                      "P  = Print ConnStation Details\n\r"
+                      "CD  = Print ConnStation Details\n\r"
                       "L  = Print Connected Stations\n\r"
                       "B  = Print TX-Buffer\n\r"
                       "R  = Print RX-Buffer\n\r"
@@ -899,6 +919,17 @@ else:
                     print('Type in Number !!')
             elif i.upper() == 'C':
                 kiss.SABM_TX()
+            elif i.upper() == 'P':
+                print('~~~~~~~~~~~~~~~~~~~~~~~~~')
+                print('')
+                for k in ax_ports.keys():
+                    print('Port: ' + str(k))
+                    print('Typ: ' + str(conf_ax_ports[ax_ports[k].port_id]['typ']))
+                    print('Addr: ' + str(conf_ax_ports[ax_ports[k].port_id]['parm1']))
+                    print('Stat: ' + str(ax_ports[k].ax_Stations))
+                    print('')
+                    print('******************************')
+
             elif i.isdigit():
                 test_snd_packet = int(i)
                 send_tr = True
@@ -931,7 +962,7 @@ else:
             elif i.upper() == 'DS':
                 print('############  Disc send to : ' + str(sel_station))
                 kiss.DISC_TX(sel_station)
-            elif i.upper() == 'P':
+            elif i.upper() == 'CD':
                 print('')
                 print(str(sel_station))
                 # for e in vars(ax_conn[sel_station]):
