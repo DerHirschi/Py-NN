@@ -1,5 +1,8 @@
 import monitor
+import crcmod
 debug = monitor.debug
+
+crc_x25 = crcmod.predefined.mkCrcFun('x-25')
 
 
 def bytearray2hexstr(inp):
@@ -275,7 +278,7 @@ def decode_ax25_frame(data_in):
         if ret['ctl']['info']:
             ret['data'] = [tmp_str2, len(tmp_str2)]                 # TODO chr() ?
     ret['via'] = via
-    print('## DATA IN > ' + str(bytearray2hexstr(data_in)) + ' --- HEX> ' + str(bytearray2hexstr(tmp_str2[-2:])))
+    # print('## DATA IN > ' + str(bytearray2hexstr(data_in)) + ' --- HEX> ' + str(bytearray2hexstr(tmp_str2[-2:])))
     for ke in ['TO', 'FROM', 'ctl']:         # Little Check Frame is plausible TODO better check
         if not ret[ke]:
             monitor.debug_out('"-------------- ERROR beim Decoden !! -------------"', True)
@@ -442,3 +445,4 @@ def encode_ax25_frame(con_data):
 def send_kiss(ser, data_in):
     monitor.debug_out("Send-Kiss: " + str(data_in))
     ser.write(bytes.fromhex('c000' + data_in + 'c0'))
+

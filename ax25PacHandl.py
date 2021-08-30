@@ -89,9 +89,6 @@ class AXPort(threading.Thread):
             axip = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             axip.bind((self.axip_ip, self.axip_port))
             axip.settimeout(0.5)
-            # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            # TODO CRC Last two bytes (x.25 Gen=0x1021 Init=0xFFFF Ref IN/OUT=True)
-            # TODO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             while not p_end:
                 try:
                     bytesAddressPair = axip.recvfrom(330)
@@ -101,22 +98,30 @@ class AXPort(threading.Thread):
                     clientIP = "Client IP Address:{}".format(address)
                     print(clientMsg)
                     print(clientIP)
-                    # b = ser.read()
-                    # pack += b
+
                     if b:  # RX ###################################################################################
-                        self.set_t0()
-                        # set_t2()
-                        # if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
-                        monitor.debug_out("----------------AXIP Data IN ----------------------")
-                        decode_inp = ax.decode_ax25_frame(b)
-                        if decode_inp:
-                            self.handle_rx(decode_inp, address)
-                            self.timer_T0 = 0
-                            monitor.debug_out('################ DEC END ##############################')
+                        ###################################
+                        # CRC
+                        crc = b[-2:]
+                        crc = int(ax.bytearray2hexstr(crc[::-1]), 16)
+                        msg = b[:-2]
+                        calc_crc = ax.crc_x25(msg)
+                        if calc_crc == crc:
+                            self.set_t0()
+                            # set_t2()
+                            # if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
+                            monitor.debug_out("----------------AXIP Data IN ----------------------")
+                            decode_inp = ax.decode_ax25_frame(msg)
+                            if decode_inp:
+                                self.handle_rx(decode_inp, address)
+                                self.timer_T0 = 0
+                                monitor.debug_out('################ DEC END ##############################')
+                            else:
+                                monitor.debug_out("ERROR Dec> " + str(decode_inp), True)
+                            # pack = b''
                         else:
-                            monitor.debug_out("ERROR Dec> " + str(decode_inp), True)
-                        monitor.debug_out("_________________________________________________")
-                        # pack = b''
+                            monitor.debug_out("ERROR CRC AXIP> " + str(b), True)
+                            monitor.debug_out("_________________________________________________")
 
                 except socket.timeout:
                     pass
@@ -127,12 +132,21 @@ class AXPort(threading.Thread):
                     n = 0
                     while self.tx_buffer and n < self.parm_MaxBufferTX:
                         enc = ax.encode_ax25_frame(self.tx_buffer[0][0])
-                        # ax.send_kiss(ser, enc)
                         address = self.tx_buffer[0][1]
                         # print(self.tx_buffer)
-                        axip.sendto(bytes.fromhex(enc), address)
-                        print(enc)
-                        mon = ax.decode_ax25_frame(bytes.fromhex(enc))
+                        ###################################
+                        # CRC
+                        enc = bytes.fromhex(enc)
+                        calc_crc = ax.crc_x25(enc)
+                        print('## CRC1> ' + str(calc_crc))
+                        print('## CRC2> ' + str(hex(calc_crc)))
+                        print('## CRC3> ' + str(hex(calc_crc)[2:]))
+                        print('## CRC4> ' + str(bytes.fromhex(hex(calc_crc)[2:].zfill(4))))
+                        print('## CRC5> ' + str(bytes.fromhex(hex(calc_crc)[2:].zfill(4))[::-1]))
+                        calc_crc = bytes.fromhex(hex(calc_crc)[2:].zfill(4))[::-1]
+                        axip.sendto(enc + calc_crc, address)
+                        # print(enc)
+                        mon = ax.decode_ax25_frame(enc)
                         self.handle_rx(mon)  # Echo TX in Monitor
                         monitor.debug_out("Out> " + str(mon))
                         self.tx_buffer = self.tx_buffer[1:]

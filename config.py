@@ -114,7 +114,7 @@ class MD3SAW10(DefaultParam):
     ax25N2 = 20
     parm_baud = 9600                    # Baud for RTT Calculation
     parm_T0 = 120                      # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-
+    cli_type = 9
     ctext = 'MD3SAW-10\r' \
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
