@@ -17,13 +17,14 @@ digi_calls = {
 mh = MH()
 
 
+#######################################
+# Connection Class
 class DefaultParam(object):
     def __init__(self):
         self.call = [self.call, self.ssid]
         self.dest = ['', 0]
         self.via = []
         self.port = None            # Port Obj
-        self.port_conf_id = 0       # conf_ax_ports
         ###################################
         # AXIP
         self.axip_client = ()       # UDP Client data   ('192.168.178.153', 8099)
@@ -95,9 +96,10 @@ class DefaultParam(object):
     parm_baud = 1200                    # Baud for RTT Calculation
     parm_T0 = 1200                      # T0 (Response Delay Timer) activated if data come in to prev resp. to early
     # parm_T1 = ax25T1                    # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-    # parm_T2 = ax25T2 / (parm_baud / 100)
+    parm_T2 = ax25T2 / (parm_baud / 100)
     # parm_IRTT = 550                   # Initial-Round-Trip-Time
-    # parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
+    parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
+    port_conf_id = 0                    # conf_ax_ports
 
     def handle_cli(self):
         if self.cli:
@@ -121,6 +123,8 @@ class MD3SAW10(DefaultParam):
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
     prompt = 'MD3SAW-10> '
+    parm_T2 = ax25T2 / (parm_baud / 100)
+    parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
 
 
 class MD3SAW11(DefaultParam):
@@ -128,10 +132,40 @@ class MD3SAW11(DefaultParam):
     ssid = 11                                                       # 0 = all
     digi = True                                                     # Digipeating
     cli_type = 9                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    ax25PacLen = 128    # Max Pac len
+    ax25MaxFrame = 5    # Max (I) Frames
+    ax25TXD = 30        # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation
+    ax25T2 = 2888       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    ax25T3 = 18000      # T3 (Inactive Link Timer)
+    ax25N2 = 5
+
     ctext = 'MD3SAW-11\r' \
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
     prompt = 'MD3SAW-11> '
+    parm_baud = DefaultParam.parm_baud
+    parm_T2 = ax25T2 / (parm_baud / 100)
+    parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
+
+class MD3SAW12(DefaultParam):
+    call = 'MD3SAW'
+    ssid = 12                                                       # 0 = all
+    digi = True                                                     # Digipeating
+    cli_type = 1                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    ax25PacLen = 250    # Max Pac len
+    ax25MaxFrame = 7    # Max (I) Frames
+    ax25TXD = 50        # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation
+    ax25T2 = 2888       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    ax25T3 = 18000      # T3 (Inactive Link Timer)
+    ax25N2 = 15
+
+    ctext = 'MD3SAW-11\r' \
+            'Diese Station dient nur zu Testzwecken !\r' \
+            'This Station is just for Testing purposes !\r'
+    prompt = 'MD3SAW-11> '
+    parm_baud = DefaultParam.parm_baud
+    parm_T2 = ax25T2 / (parm_baud / 100)
+    parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
 
 
 class MD4SAW(DefaultParam):
@@ -148,6 +182,9 @@ class MD4SAW(DefaultParam):
     ax25T2 = 4000                       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
     ax25T3 = 180000                     # TODO T3 (Inactive Link Timer)
     ax25N2 = 5                          # Max Try   Default 20
+    parm_baud = DefaultParam.parm_baud
+    parm_T2 = ax25T2 / (parm_baud / 100)
+    parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
 
 
 # stat_list = [DefaultParam, MD3SAW10, MD3SAW11]
@@ -157,9 +194,9 @@ conf_ax_ports = {
     0: {
         'typ': 'KISS',
         'parm1': "/tmp/ptyAX5",
-        'parm2': 9600,
-        'name': 'Port 0',
-        'stat_list': [DefaultParam, MD3SAW11]
+        'parm2': 1200,
+        'name': 'Port 0 KISS',
+        'stat_list': [DefaultParam, MD3SAW11, MD3SAW12]
     },
     1: {
         'typ': 'AXIP',
@@ -167,7 +204,7 @@ conf_ax_ports = {
         'parm2': 8099,                  #
         'name': 'Port 1 AXIP',
         'bcast': True,                  # AXIP Broadcast Server (Send icomming Traffic out to all other AXIP Clients)
-        'stat_list': [MD3SAW10]
+        'stat_list': [MD3SAW10, MD4SAW]
     },
 }
 

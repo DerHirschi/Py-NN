@@ -1,3 +1,5 @@
+import config
+
 
 class CLIDefault(object):
     def __init__(self, Station):
@@ -377,8 +379,57 @@ class CLINode(CLITest):
         self.station.tx_data += self.station.promptvar
         # self.station.port.DISC_TX(self.station.conn_id)
 
+    def port(self):
+        out = "\r-#-Name/Call----Speed/M-Max-TXD-PAC-PERS-SLOT-IRTT---T2----T3--RET-DA-C-S-M--CLI\r"
+        for ke in config.conf_ax_ports.keys():
+            out += '{:2} {:12} ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r'.format(ke,
+                                                                            config.conf_ax_ports[ke]['name'])
+            for stat in config.ax_ports[ke].ax_Stations.keys():
+                # print(str(config.ax_ports[ke].ax_Stations))
+                print(''.join("%s: %s\r" % item for item in vars(config.ax_ports[ke].ax_Stations[stat]).items()))
+                # out +='{:2} {:12} {:11}   {}  {:3} {:3}         {:4}\r'.format(
+                out +='{:2} {:12} {:7}   {} {:3} {:3}           {:4}  {:3}  {:4}   {:2}            {:2}\r'.format(
+                                            config.ax_ports[ke].ax_Stations[stat].port_conf_id,
+                                            stat,
+                                            config.ax_ports[ke].ser_baud,
+                                            config.ax_ports[ke].ax_Stations[stat].ax25MaxFrame,
+                                            config.ax_ports[ke].ax_Stations[stat].ax25TXD,
+                                            config.ax_ports[ke].ax_Stations[stat].ax25PacLen,
+                                            round(config.ax_ports[ke].ax_Stations[stat].parm_IRTT),
+                                            round(config.ax_ports[ke].ax_Stations[stat].parm_T2),
+                                            round(config.ax_ports[ke].ax_Stations[stat].ax25T3 / 100),
+                                            config.ax_ports[ke].ax_Stations[stat].ax25N2,
+                                            config.ax_ports[ke].ax_Stations[stat].cli_type)
+
+        self.station.tx_data += '\r' + out
+        self.station.tx_data += self.station.promptvar
+
+    def ax_clients(self):
+        out = 'Call-------IP----------------------Mode----Port---Timeout--IP/Hostname----\r'
+        for ke in config.ax_ports.keys():
+            if config.ax_ports[ke].port_typ == 'AXIP':
+                for conn_id in config.ax_ports[ke].ax_conn.keys():
+                    bcast_mode = config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['bcast']
+                    if bcast_mode:
+                        bcast_mode = 'BRCAST'
+                    else:
+                        bcast_mode = ''
+                    out += '{}  {:15}:{}    {:6} {:5}   {}         {:15}\r'.format(
+                        config.ax_ports[ke].ax_conn[conn_id].call_str,
+                        config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['parm1'],
+                        config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['parm2'],
+                        bcast_mode,
+                        config.ax_ports[ke].ax_conn[conn_id].axip_client[1],
+                        '',
+                        config.ax_ports[ke].ax_conn[conn_id].axip_client[0]
+                    )
+        self.station.tx_data += '\r' + out
+        self.station.tx_data += self.station.promptvar
+
     CLIDefault.cmd_dic.update({
         'C': (connect, '(C)onnect to other Station ( Not implemented yet )'),
+        'P': (port, 'Show (P)orts'),
+        'AX': (ax_clients, 'Show (AX)IP Clients'),
     })
 
 

@@ -67,7 +67,7 @@ class MH(object):
         tb = 0
         rj = 0
         for call in list(self.calls.keys()):
-            out += 'P:{}> {:5} S {} {:4}'.format(self.calls[call]['port'],
+            out += 'P:{:2}>{:5} S {:9} {:3}'.format(self.calls[call]['port'],
                                                 round(time.time() - self.calls[call]['last_seen'][0]),
                                                 call,
                                                 '')

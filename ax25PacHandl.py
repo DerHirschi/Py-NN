@@ -31,6 +31,7 @@ class AXPort(threading.Thread):
             self.ser_port = conf_ax_ports[port_conf_id]['parm1']
             self.ser_baud = conf_ax_ports[port_conf_id]['parm2']
         elif self.port_typ == 'AXIP':
+            self.ser_baud = 1200        # TODO !! Just a dummy value !!
             self.axip_ip = conf_ax_ports[port_conf_id]['parm1']
             self.axip_port = conf_ax_ports[port_conf_id]['parm2']
             self.axip_bcast = conf_ax_ports[port_conf_id]['bcast']
@@ -818,20 +819,20 @@ else:
     #####################################################################################
     # Init Ports and Stations ( Calls )
     #####################################################################################
-
+    n = 0
     for k in conf_ax_ports.keys():
         # Ports
-        ax_ports[k] = AXPort(k)
+        ax_ports[n] = AXPort(k)
         for stat in conf_ax_ports[k]['stat_list']:
             # Stations
             if stat.ssid:
                 call_str = ax.get_call_str(stat.call, stat.ssid)
                 stat.call_str = call_str
                 stat.port_conf_id = k
-                ax_ports[k].ax_Stations[call_str] = stat
+                ax_ports[n].ax_Stations[call_str] = stat
                 if stat.digi:
                     # digi_calls.append([[stat.call, stat.ssid], ax_ports[k]])
-                    digi_calls[call_str] = ax_ports[k]
+                    digi_calls[call_str] = ax_ports[n]
 
             else:
                 #########################################
@@ -840,10 +841,11 @@ else:
                     call_str = ax.get_call_str(stat.call, ssid)
                     stat.call_str = call_str
                     stat.port_conf_id = k
-                    ax_ports[k].ax_Stations[call_str] = stat
+                    ax_ports[n].ax_Stations[call_str] = stat
                     if stat.digi:
-                        digi_calls[call_str] = ax_ports[k]
-        ax_ports[k].start()
+                        digi_calls[call_str] = ax_ports[n]
+        ax_ports[n].start()
+        n += 1
     #####################################################################################
     # Init END !!!
     #####################################################################################
