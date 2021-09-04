@@ -2,6 +2,30 @@ from ax25enc import get_call_str
 import time
 
 
+class AXIPClients(object):
+    def __init__(self, port):
+        self.port = port
+        self.clients = {
+            # 'call_str': {
+            #       'addr': (),
+            #       'lastsee': 0.0,
+            # }
+        }
+
+    def cli_cmd_out(self):
+        out = ''
+        out += '\r                       < AXIP - Routes >\r\r'
+        out += '-Call-----IP:Port---------------Timeout------------------\r'
+        for ke in self.clients.keys():
+            out += '{:9} {:21} {:8}\r'.format(
+                ke,
+                self.clients[ke]['addr'][0] + ':' + str(self.clients[ke]['addr'][1]),
+                round(time.time() - self.clients[ke]['lastsee'])
+            )
+        out += '\r'
+        return out
+
+
 class MH(object):
     def __init__(self):
         self.raw = {}

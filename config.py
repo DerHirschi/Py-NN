@@ -1,6 +1,6 @@
 import ax25enc as ax
 from remote_cli import init_cli
-from ax25Statistics import MH
+from ax25Statistics import *
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
@@ -82,7 +82,9 @@ class DefaultParam(object):
     }
     prompt = '> '
     digi = True                         # Digipeating
-    cli_type = 0                        # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS)
+    cli_type = []                       # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS)
+    cli_msg_tag = '<{}>'
+    cli_sufix = '//'
     ###################################################################################################################
     # AX25 Parameters                   ###############################################################################
     ax25PacLen = 115                    # Max Pac len
@@ -118,7 +120,8 @@ class MD3SAW10(DefaultParam):
     ax25N2 = 20
     parm_baud = 1200    # Baud for RTT Calculation  !! Need to be low on AXIP for T1 calculation
     parm_T0 = 1         # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-    cli_type = 9
+    cli_type = [0]
+    cli_sufix = '//'
     ctext = 'MD3SAW-10\r' \
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
@@ -131,7 +134,8 @@ class MD3SAW11(DefaultParam):
     call = 'MD3SAW'
     ssid = 11                                                       # 0 = all
     digi = True                                                     # Digipeating
-    cli_type = 9                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_type = [1, 3, 4, 9]                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_sufix = ''
     ax25PacLen = 128    # Max Pac len
     ax25MaxFrame = 5    # Max (I) Frames
     ax25TXD = 30        # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation
@@ -147,22 +151,25 @@ class MD3SAW11(DefaultParam):
     parm_T2 = ax25T2 / (parm_baud / 100)
     parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
 
+
 class MD3SAW12(DefaultParam):
     call = 'MD3SAW'
     ssid = 12                                                       # 0 = all
     digi = True                                                     # Digipeating
-    cli_type = 1                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_type = [1]                                                  # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_sufix = ''
     ax25PacLen = 250    # Max Pac len
     ax25MaxFrame = 7    # Max (I) Frames
-    ax25TXD = 50        # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation
-    ax25T2 = 2888       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
-    ax25T3 = 18000      # T3 (Inactive Link Timer)
+    ax25TXD = 500        # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation
+    ax25T2 = 3       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    ax25T3 = 180000      # T3 (Inactive Link Timer)
     ax25N2 = 15
+    parm_T0 = 1         # T0 (Response Delay Timer) activated if data come in to prev resp. to early
 
-    ctext = 'MD3SAW-11\r' \
+    ctext = 'MD3SAW-12\r' \
             'Diese Station dient nur zu Testzwecken !\r' \
             'This Station is just for Testing purposes !\r'
-    prompt = 'MD3SAW-11> '
+    prompt = 'MD3SAW-12> '
     parm_baud = DefaultParam.parm_baud
     parm_T2 = ax25T2 / (parm_baud / 100)
     parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
@@ -196,7 +203,8 @@ conf_ax_ports = {
         'parm1': "/tmp/ptyAX5",
         'parm2': 1200,
         'name': 'Port 0 KISS',
-        'stat_list': [DefaultParam, MD3SAW11, MD3SAW12]
+        # 'stat_list': [DefaultParam, MD3SAW11]
+        'stat_list': [MD3SAW11]
     },
     1: {
         'typ': 'AXIP',
@@ -204,7 +212,7 @@ conf_ax_ports = {
         'parm2': 8099,                  #
         'name': 'Port 1 AXIP',
         'bcast': True,                  # AXIP Broadcast Server (Send icomming Traffic out to all other AXIP Clients)
-        'stat_list': [MD3SAW10, MD4SAW]
+        'stat_list': [MD3SAW10, MD3SAW12]
     },
 }
 

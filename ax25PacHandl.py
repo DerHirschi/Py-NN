@@ -35,6 +35,9 @@ class AXPort(threading.Thread):
             self.axip_ip = conf_ax_ports[port_conf_id]['parm1']
             self.axip_port = conf_ax_ports[port_conf_id]['parm2']
             self.axip_bcast = conf_ax_ports[port_conf_id]['bcast']
+            #################################
+            # Init AXIP Client List
+            self.axip_clients = AXIPClients(self)
         ########################################
         # AX25 Parameters
         self.parm_max_i_frame = int(DefaultParam().parm_max_i_frame)  # Max I-Frame (all connections) per Cycle
@@ -120,9 +123,15 @@ class AXPort(threading.Thread):
                                 self.handle_rx(decode_inp, address)
                                 self.timer_T0 = 0
                                 monitor.debug_out('################ DEC END ##############################')
+                                call_st = decode_inp[0].split(':')[1]
+                                if call_st not in self.axip_clients.clients.keys():
+                                    self.axip_clients.clients[call_st] = {}
+                                self.axip_clients.clients[call_st]['addr'] = address
+                                self.axip_clients.clients[call_st]['lastsee'] = time.time()
                                 if self.axip_bcast:
-                                    for ke in self.ax_conn.keys():
-                                        addr = self.ax_conn[ke].axip_client
+                                    # for ke in self.ax_conn.keys():
+                                    for ke in self.axip_clients.clients.keys():
+                                        addr = self.axip_clients.clients[ke]['addr']
                                         axip.sendto(b, addr)
                             else:
                                 monitor.debug_out("ERROR Dec> " + str(decode_inp), True)

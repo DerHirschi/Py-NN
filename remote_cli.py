@@ -8,11 +8,13 @@ class CLIDefault(object):
         self.stat = ''  # DISC,  HOLD...
         self.scr = []   # Script mode ( Func, Step )
         self.scr_run = False   # Script mode / Don't wait for input
+        self.cmd_dic = dict(self.cmd_dic_default)
         Station.qtext = Station.qtext.format(Station.call_str)
-    cli_msg_tag = '<{}>'
-    cli_sufix = '//'
+        self.cli_msg_tag = Station.cli_msg_tag
+        self.cli_sufix = Station.cli_sufix
 
     def main(self):
+
         if self.stat != 'HOLD':
             if not self.stat:
                 # if not self.scr:
@@ -34,6 +36,9 @@ class CLIDefault(object):
                                     el = el[len(self.cli_sufix):]
                                     self.exec_cmd(el)
                                     print('## CLI CMD IN > ' + el)
+                                else:
+                                    print('## CLI CMD IN no SUFIX> ' + el)
+                                    self.tx_cli_msg('Command not Found !')
                             else:
                                 self.exec_cmd(el)
                                 print('## CLI CMD IN > ' + el)
@@ -111,7 +116,7 @@ class CLIDefault(object):
 
     ############################################
     # Default CMD Dict
-    cmd_dic = {
+    cmd_dic_default = {
         'Q': (quit_cmd, '(Q)uit/Bye'),
         'B': (quit_cmd, '(B)ye/Quit'),
         'D': (disc_cmd, '(D)isconnect from Station'),
@@ -179,18 +184,18 @@ class CLIFileTransport(CLIDefault):
                 self.tx_cli_msg(' Done ! ')
                 self.scr_run = False
                 self.scr = []
-
+    """
     CLIDefault.cmd_dic.update({
 
         'UP': (ft_up, '(Up)load Test File'),
         'DO': (ft_dn, '(Do)wnload Test File'),
         'DT': (ft_dt, '(D)wnload (T)est Data (b"123456789")'),
     })
-
+    """
 
 #################################################
 # Test CLI
-class CLITest(CLIFileTransport):
+class CLITest(CLIDefault):
     cli_msg_tag = '<{}>'
     cli_sufix = ''
 
@@ -362,18 +367,18 @@ class CLITest(CLIFileTransport):
             self.tx_cli_msg(' Done !! ')
             self.scr = []
             self.scr_run = False
-
+    """
     CLIDefault.cmd_dic.update({
         'T1': (testfnc, 'Test Packet sender 1'),
         'T2': (testfnc2, 'Test Packet sender 2'),
         'PA': (sh_parm, 'Show all (Pa)rameters'),
         'RT': (rtt_parm, 'Show (RT)T Parameters'),
     })
-
+    """
 
 ####################################################################
 # class CLINode(CLIDefault):
-class CLINode(CLITest):
+class CLINode(CLIDefault):
     def connect(self):
         self.station.tx_data += str(self.station.port)
         self.station.tx_data += self.station.promptvar
@@ -399,7 +404,7 @@ class CLINode(CLITest):
                                             round(config.ax_ports[ke].ax_Stations[stat].parm_T2),
                                             round(config.ax_ports[ke].ax_Stations[stat].ax25T3 / 100),
                                             config.ax_ports[ke].ax_Stations[stat].ax25N2,
-                                            config.ax_ports[ke].ax_Stations[stat].cli_type)
+                                            str(config.ax_ports[ke].ax_Stations[stat].cli_type))
 
         self.station.tx_data += '\r' + out
         self.station.tx_data += self.station.promptvar
@@ -426,18 +431,68 @@ class CLINode(CLITest):
         self.station.tx_data += '\r' + out
         self.station.tx_data += self.station.promptvar
 
+    def ax_routes(self):
+        out = ''
+        for ke in config.ax_ports.keys():
+            if config.ax_ports[ke].port_typ == 'AXIP':
+                out += config.ax_ports[ke].axip_clients.cli_cmd_out()
+        self.station.tx_data += out
+        self.station.tx_data += self.station.promptvar
+    """
     CLIDefault.cmd_dic.update({
         'C': (connect, '(C)onnect to other Station ( Not implemented yet )'),
         'P': (port, 'Show (P)orts'),
         'AX': (ax_clients, 'Show (AX)IP Clients'),
+        'AR': (ax_routes, 'Show (A)XIP (R)outes'),
     })
+    """
 
+class CLIAXIP(CLIDefault):
+    def dummy(self):
+        pass
+    """
+    CLIDefault.cmd_dic.update({
+        'x': (dummy, 'Dummy'),
+    })
+    """
 
 ####################################################################
 # INIT
 def init_cli(conn_obj):
+    # conn_obj.cli = None
+    conn_obj.cli = CLIDefault(conn_obj)
+    # print(conn_obj.cli.cmd_dic)
+    if 1 in conn_obj.cli_type:
+        conn_obj.cli.cmd_dic.update({
+            'C': (CLINode.connect, '(C)onnect to other Station ( Not implemented yet )'),
+            'P': (CLINode.port, 'Show (P)orts'),
+            'AX': (CLINode.ax_clients, 'Show (AX)IP Clients'),
+            'AR': (CLINode.ax_routes, 'Show (A)XIP (R)outes'),
+        })
+    if 3 in conn_obj.cli_type:
+        conn_obj.cli.cmd_dic.update({
+            'UP': (CLIFileTransport.ft_up, '(Up)load Test File'),
+            'DO': (CLIFileTransport.ft_dn, '(Do)wnload Test File'),
+            'DT': (CLIFileTransport.ft_dt, '(D)wnload (T)est Data (b"123456789")'),
+        })
+
+    if 4 in conn_obj.cli_type:
+        conn_obj.cli.cmd_dic.update({
+            'X': (CLIAXIP.dummy, 'Dummy'),
+        })
+    if 9 in conn_obj.cli_type:
+        conn_obj.cli.cmd_dic.update({
+            'T1': (CLITest.testfnc, 'Test Packet sender 1'),
+            'T2': (CLITest.testfnc2, 'Test Packet sender 2'),
+            'PA': (CLITest.sh_parm, 'Show all (Pa)rameters'),
+            'RT': (CLITest.rtt_parm, 'Show (RT)T Parameters'),
+        })
+    # print(str(conn_obj.cli.cmd_dic))
+    """
     conn_obj.cli = {
         1: CLINode,
+        4: CLIAXIP,
         9: CLITest,
     }[conn_obj.cli_type](conn_obj)
+    """
 ####################################################################
