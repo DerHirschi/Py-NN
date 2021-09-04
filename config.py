@@ -120,7 +120,7 @@ class MD3SAW10(DefaultParam):
     ax25N2 = 20
     parm_baud = 1200    # Baud for RTT Calculation  !! Need to be low on AXIP for T1 calculation
     parm_T0 = 1         # T0 (Response Delay Timer) activated if data come in to prev resp. to early
-    cli_type = [0]
+    cli_type = [1]
     cli_sufix = '//'
     ctext = 'MD3SAW-10\r' \
             'Diese Station dient nur zu Testzwecken !\r' \
@@ -134,7 +134,7 @@ class MD3SAW11(DefaultParam):
     call = 'MD3SAW'
     ssid = 11                                                       # 0 = all
     digi = True                                                     # Digipeating
-    cli_type = [1, 3, 4, 9]                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_type = [1, 3, 4, 9]                                                   # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
     cli_sufix = ''
     ax25PacLen = 128    # Max Pac len
     ax25MaxFrame = 5    # Max (I) Frames
@@ -156,7 +156,7 @@ class MD3SAW12(DefaultParam):
     call = 'MD3SAW'
     ssid = 12                                                       # 0 = all
     digi = True                                                     # Digipeating
-    cli_type = [1]                                                  # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_type = [1]                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
     cli_sufix = ''
     ax25PacLen = 250    # Max Pac len
     ax25MaxFrame = 7    # Max (I) Frames
