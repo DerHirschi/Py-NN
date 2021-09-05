@@ -13,6 +13,7 @@ class CLIDefault(object):
         self.cli_msg_tag = Station.cli_msg_tag
         self.cli_sufix = Station.cli_sufix
         self.cmd_dic_default = {}
+        self.cmd_dic = {}
 
     def main(self):
 
