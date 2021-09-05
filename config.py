@@ -1,4 +1,5 @@
 import ax25enc as ax
+import remote_cli
 from remote_cli import init_cli
 from ax25Statistics import *
 
@@ -58,9 +59,10 @@ class DefaultParam(object):
         self.deb_calc_t1 = 0
         ###################################
         # CLI
-        self.cli = None
         self.mh = mh
+        self.cli = None
         if self.cli_type:
+            self.cli = remote_cli.CLIDefault(self)
             init_cli(self)
             self.promptvar = '\r' + self.prompt
             self.ctextvar = self.ctext + self.prompt
@@ -92,7 +94,7 @@ class DefaultParam(object):
     ax25TXD = 50                        # TX Delay for RTT Calculation
     ax25T2 = 2888                       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
     ax25T3 = 18000                      # T3 (Inactive Link Timer) Default: 18000
-    ax25N2 = 20                         # Max Try   Default 20 TODO Testing
+    ax25N2 = 20                         # Max Try   Default 20
     parm_MaxBufferTX = 20               # Max Frames to send from Buffer
     parm_max_i_frame = 14               # Max I-Frame (all connections) per Cycle
     parm_baud = 1200                    # Baud for RTT Calculation
@@ -134,7 +136,7 @@ class MD3SAW11(DefaultParam):
     call = 'MD3SAW'
     ssid = 11                                                       # 0 = all
     digi = True                                                     # Digipeating
-    cli_type = [1, 3, 4, 9]                                                   # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_type = [1, 3, 4, 9]                                         # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
     cli_sufix = ''
     ax25PacLen = 128    # Max Pac len
     ax25MaxFrame = 5    # Max (I) Frames
@@ -187,7 +189,7 @@ class MD4SAW(DefaultParam):
     ax25MaxFrame = 3                    # Max (I) Frames
     ax25TXD = 50                        # TX Delay for RTT Calculation
     ax25T2 = 4000                       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
-    ax25T3 = 180000                     # TODO T3 (Inactive Link Timer)
+    ax25T3 = 180000                     # T3 (Inactive Link Timer)
     ax25N2 = 5                          # Max Try   Default 20
     parm_baud = DefaultParam.parm_baud
     parm_T2 = ax25T2 / (parm_baud / 100)

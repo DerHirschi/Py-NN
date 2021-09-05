@@ -6,13 +6,13 @@ class CLIDefault(object):
         self.station = Station
         self.cmd_inp = []
         self.stat = ''  # DISC,  HOLD...
-        self.scr = []   # Script mode ( Func, Step )
-        self.scr_run = False   # Script mode / Don't wait for input
+        self.scr = []  # Script mode ( Func, Step )
+        self.scr_run = False  # Script mode / Don't wait for input
         # self.cmd_dic = dict(self.cmd_dic_default)
         Station.qtext = Station.qtext.format(Station.call_str)
         self.cli_msg_tag = Station.cli_msg_tag
         self.cli_sufix = Station.cli_sufix
-
+        self.cmd_dic_default = {}
 
     def main(self):
 
@@ -117,24 +117,10 @@ class CLIDefault(object):
         print('######## CLI Disc CMD')
         self.station.port.DISC_TX(self.station.conn_id)
 
-    ############################################
-    # Default CMD Dict
-    cmd_dic_default = {
-        'Q': (quit_cmd, '(Q)uit/Bye'),
-        'B': (quit_cmd, '(B)ye/Quit'),
-        'D': (disc_cmd, '(D)isconnect from Station'),
-        'MH': (mh_cmd, '(MH) LIst'),
-        '?': (list_cmd_help, 'List available Commands'),
-        'H': (short_help, 'Show this ..'),
-        'V': (vers, '(V)ersion - Software Info'),
-    }
-    cmd_dic = dict(cmd_dic_default)
-
 
 #################################################
-# File Transpoert ( Test )
+# File Transport ( Test )
 # class CLIFileTransport(CLIDefault):
-
     def ft_up(self):
         self.tx_cli_msg('!!DUMMY!!Not implemented yet !')
 
@@ -188,6 +174,7 @@ class CLIDefault(object):
                 self.tx_cli_msg(' Done ! ')
                 self.scr_run = False
                 self.scr = []
+
     """
 
     CLIDefault.cmd_dic = dict(CLIDefault.cmd_dic_default)
@@ -199,9 +186,9 @@ class CLIDefault(object):
     })
     """
 
-#################################################
-# Test CLI
-# class CLITest(CLIDefault):
+    #################################################
+    # Test CLI
+    # class CLITest(CLIDefault):
     # cli_msg_tag = '<{}>'  ## Config in Station Class (DefaultParam)
     # cli_sufix = ''        ## Config in Station Class (DefaultParam)
 
@@ -324,7 +311,8 @@ class CLIDefault(object):
                         out += '#'
                     out += '\r'
                     self.station.tx_data += out
-                    self.scr = [self.testfnc2, 3, int(self.scr[2]), int(self.scr[3]) + 1, int(self.scr[4]) + 1, int(self.scr[5])]
+                    self.scr = [self.testfnc2, 3, int(self.scr[2]), int(self.scr[3]) + 1, int(self.scr[4]) + 1,
+                                int(self.scr[5])]
 
                 else:
                     self.station.ax25PacLen = int(self.scr[2])
@@ -359,6 +347,7 @@ class CLIDefault(object):
             self.station.tx_data += '\r< RTT Parameter >\r\r'
             self.station.tx_data += out
             # self.station.tx_data += self.station.promptvar
+
         if not self.scr:
             send_parm()
             self.tx_cli_msg(' Press Enter for next... ')
@@ -373,6 +362,7 @@ class CLIDefault(object):
             self.tx_cli_msg(' Done !! ')
             self.scr = []
             self.scr_run = False
+
     """
 
     CLIDefault.cmd_dic = dict(CLIDefault.cmd_dic_default)
@@ -384,9 +374,9 @@ class CLIDefault(object):
     })
     """
 
-####################################################################
-# class CLINode(CLIDefault):
-# class CLINode(CLIDefault):
+    ####################################################################
+    # class CLINode(CLIDefault):
+    # class CLINode(CLIDefault):
     def connect(self):
         self.station.tx_data += str(self.station.port)
         self.station.tx_data += self.station.promptvar
@@ -396,23 +386,25 @@ class CLIDefault(object):
         out = "\r-#-Name/Call----Speed/M-Max-TXD-PAC-PERS-SLOT-IRTT---T2----T3--RET-CLI----------\r"
         for ke in config.conf_ax_ports.keys():
             out += '{:2} {:12} ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r'.format(ke,
-                                                                            config.conf_ax_ports[ke]['name'])
+                                                                                                          config.conf_ax_ports[
+                                                                                                              ke][
+                                                                                                              'name'])
             for stat in config.ax_ports[ke].ax_Stations.keys():
                 # print(str(config.ax_ports[ke].ax_Stations))
                 print(''.join("%s: %s\r" % item for item in vars(config.ax_ports[ke].ax_Stations[stat]).items()))
                 # out +='{:2} {:12} {:11}   {}  {:3} {:3}         {:4}\r'.format(
-                out +='{:2} {:12} {:7}   {} {:3} {:3}           {:4}  {:3}  {:4}   {:2} {}\r'.format(
-                                            config.ax_ports[ke].ax_Stations[stat].port_conf_id,
-                                            stat,
-                                            config.ax_ports[ke].ser_baud,
-                                            config.ax_ports[ke].ax_Stations[stat].ax25MaxFrame,
-                                            config.ax_ports[ke].ax_Stations[stat].ax25TXD,
-                                            config.ax_ports[ke].ax_Stations[stat].ax25PacLen,
-                                            round(config.ax_ports[ke].ax_Stations[stat].parm_IRTT),
-                                            round(config.ax_ports[ke].ax_Stations[stat].parm_T2),
-                                            round(config.ax_ports[ke].ax_Stations[stat].ax25T3 / 100),
-                                            config.ax_ports[ke].ax_Stations[stat].ax25N2,
-                                            str(config.ax_ports[ke].ax_Stations[stat].cli_type))
+                out += '{:2} {:12} {:7}   {} {:3} {:3}           {:4}  {:3}  {:4}   {:2} {}\r'.format(
+                    config.ax_ports[ke].ax_Stations[stat].port_conf_id,
+                    stat,
+                    config.ax_ports[ke].ser_baud,
+                    config.ax_ports[ke].ax_Stations[stat].ax25MaxFrame,
+                    config.ax_ports[ke].ax_Stations[stat].ax25TXD,
+                    config.ax_ports[ke].ax_Stations[stat].ax25PacLen,
+                    round(config.ax_ports[ke].ax_Stations[stat].parm_IRTT),
+                    round(config.ax_ports[ke].ax_Stations[stat].parm_T2),
+                    round(config.ax_ports[ke].ax_Stations[stat].ax25T3 / 100),
+                    config.ax_ports[ke].ax_Stations[stat].ax25N2,
+                    str(config.ax_ports[ke].ax_Stations[stat].cli_type))
 
         self.station.tx_data += '\r' + out
         self.station.tx_data += self.station.promptvar
@@ -446,6 +438,7 @@ class CLIDefault(object):
                 out += config.ax_ports[ke].axip_clients.cli_cmd_out()
         self.station.tx_data += out
         self.station.tx_data += self.station.promptvar
+
     """
 
     CLIDefault.cmd_dic = dict(CLIDefault.cmd_dic_default)
@@ -457,9 +450,10 @@ class CLIDefault(object):
     })
     """
 
-# class CLIAXIP(CLIDefault):
+    # class CLIAXIP(CLIDefault):
     def dummy(self):
         pass
+
     """
 
     CLIDefault.cmd_dic = dict(CLIDefault.cmd_dic_default)
@@ -469,41 +463,44 @@ class CLIDefault(object):
     """
 
 
-
 ####################################################################
 # INIT
 def init_cli(conn_obj):
-    # conn_obj.cli = None
-    conn_obj.cli = CLIDefault(conn_obj)
-    # print(conn_obj.cli.cmd_dic)
-    tmp_cmd_dict = dict(CLIDefault.cmd_dic_default)
+    # tmp_cmd_dict = dict(CLIDefault.cmd_dic_default)
+    ############################################
+    # Default CMD Dict
+    tmp_cmd_dict = {
+        'Q': (CLIDefault.quit_cmd, '(Q)uit/Bye'),
+        'B': (CLIDefault.quit_cmd, '(B)ye/Quit'),
+        'D': (CLIDefault.disc_cmd, '(D)isconnect from Station'),
+        'MH': (CLIDefault.mh_cmd, '(MH) List'),
+        '?': (CLIDefault.list_cmd_help, 'Show available Commands'),
+        'H': (CLIDefault.short_help, 'Show this ..'),
+        'V': (CLIDefault.vers, '(V)ersion - Software Info'),
+    }
+
+    # Node
     if 1 in conn_obj.cli_type:
-        # conn_obj.cli = CLINode(conn_obj)
         tmp_cmd_dict.update({
             'C': (CLIDefault.connect, '(C)onnect to other Station ( Not implemented yet )'),
             'P': (CLIDefault.port, 'Show (P)orts'),
             'AX': (CLIDefault.ax_clients, 'Show (AX)IP Clients'),
             'AR': (CLIDefault.ax_routes, 'Show (A)XIP (R)outes'),
         })
-        # conn_obj.cli.cmd_dic = dict(tmp_cmd_dict)
+    # File transfer
     if 3 in conn_obj.cli_type:
-        # conn_obj.cli = CLIFileTransport(conn_obj)
         tmp_cmd_dict.update({
             'UP': (CLIDefault.ft_up, '(Up)load Test File'),
             'DO': (CLIDefault.ft_dn, '(Do)wnload Test File'),
             'DT': (CLIDefault.ft_dt, '(D)ownload (T)est Data (b"123456789")'),
         })
-        # conn_obj.cli.cmd_dic = dict(tmp_cmd_dict)
-
+    # AXIP
     if 4 in conn_obj.cli_type:
-        # conn_obj.cli = CLIAXIP(conn_obj)
         tmp_cmd_dict.update({
             'X': (CLIDefault.dummy, 'Dummy'),
         })
-        # conn_obj.cli.cmd_dic = dict(tmp_cmd_dict)
-
+    # Test
     if 9 in conn_obj.cli_type:
-        # conn_obj.cli = CLITest(conn_obj)
         tmp_cmd_dict.update({
             'T1': (CLIDefault.testfnc, 'Test Packet sender 1'),
             'T2': (CLIDefault.testfnc2, 'Test Packet sender 2'),
@@ -513,7 +510,6 @@ def init_cli(conn_obj):
 
     conn_obj.cli.cmd_dic = dict(tmp_cmd_dict)
     print(conn_obj.cli.cmd_dic)
-    # print(str(conn_obj.cli.cmd_dic))
     """
     conn_obj.cli = {
         1: CLINode,
