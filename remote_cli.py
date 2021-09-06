@@ -1,5 +1,4 @@
 import config
-import ax25enc as ax
 
 
 class CLIDefault(object):
@@ -81,23 +80,10 @@ class CLIDefault(object):
         self.station.tx_data += self.station.promptvar
 
     def vers(self):
-        """
         out = "******************************************************\r" \
               "* Testing Stuff Station. I don't know something with *\r" \
               "*  AX25 de/encoding in Python from MD2SAW (Manuel)   *\r" \
               "******************************************************\r"
-        """
-        out = "*****************************************\r" \
-              "*  ____        _   _  ___  ____  _____  *\r" \
-              "* |  _ \ _   _| \ | |/ _ \|  _ \| ____| *\r" \
-              "* | |_) | | | |  \| | | | | | | |  _|   *\r" \
-              "* |  __/| |_| | |\  | |_| | |_| | |___  *\r" \
-              "* |_|    \__, |_| \_|\___/|____/|_____| *\r" \
-              "*        |___/                          *\r" \
-              "* Under development by MD2SAW (Manuel)  *\r" \
-              "* Will be published on GitHub..         *\r" \
-              "*****************************************\r"
-
         self.station.tx_data += '\r' + out
         self.station.tx_data += self.station.promptvar
 
@@ -389,75 +375,11 @@ class CLIDefault(object):
     })
     """
 
-####################################################################
-# class CLINode(CLIDefault):
+    ####################################################################
+    # class CLINode(CLIDefault):
+    # class CLINode(CLIDefault):
     def connect(self):
-        inp = self.cmd_inp[0]
-        print('######## INP1> ' + str(inp))
-        inp = inp.split(' ')[1:]
-        print('######## INP2> ' + str(inp))
-        if not inp:
-            self.tx_cli_msg(' Please enter valid Call !! ')
-            return
-        dest_call = inp[0].upper()
-        caller_call = ax.get_call_str(self.station.dest)
-        print('######## caller_call> ' + str(caller_call))
-        # TODO !!!!!!!!! Via list !!!!!!
-        via = [self.station.call_str]
-        via_list = list(self.station.via)
-        via_list.reverse()
-        # TODO !!!!!!! Ports
-        if len(inp) > 1:
-            via += inp[1:]
-        conn_id = dest_call + ':' + caller_call # + ':' + self.station.call_str
-        dest = ax.get_ssid(dest_call)
-        for el in via:
-            el = el.upper()
-            # conn_id += ':' + el
-            tm = ax.get_ssid(el)
-            """
-            if not via_list:            # Own Station set to True ( Digeipeated )
-                tm.append(True)         # Digi Trigger ( H BIT )
-            else:
-                tm.append(False)        # Digi Trigger ( H BIT )
-            """
-            tm.append(False)        # Digi Trigger ( H BIT )
-            via_list.append(tm)
-
-            # tm.append(False)
-        for el in via_list:
-            conn_id += ':' + el[0]
-
-
-        print(conn_id)
-        print(via)
-        print(via_list)
-
-        self.station.tx_data += '\r' + '<Dummy for Testing. Not working yet>' + '\r'
-        self.station.tx_data += '\r' + str(conn_id)
-        self.station.tx_data += '\r' + str(via)
-        self.station.tx_data += '\r' + str(via_list)
-
-        if conn_id not in self.station.port.ax_conn.keys():
-            print('>>>> 1 ' + str(self.station.port.ax_Stations[self.station.call_str]))
-
-            self.station.port.ax_conn[conn_id] = self.station.port.ax_Stations[self.station.call_str]()
-            print('>>>> 2 ' + str(self.station.port.ax_conn[conn_id]))
-            self.station.port.ax_conn[conn_id].call = self.station.dest
-            self.station.port.ax_conn[conn_id].dest = [dest[0], dest[1]]
-            self.station.port.ax_conn[conn_id].via = via_list
-            self.station.port.ax_conn[conn_id].stat = 'SABM'
-            tx_pack = self.station.port.get_tx_packet_item(conn_id=conn_id)
-            tx_pack['typ'] = ['SABM', True]
-            tx_pack['cmd'] = True
-            self.station.port.ax_conn[conn_id].tx = [tx_pack]
-            # set_t1(conn_id)
-            self.station.port.set_t3(conn_id)
-            self.station.tx_data += '\r' + str(self.station.port.ax_conn)
-            self.station.tx_data += '\r' + str("OK ..")
-        else:
-            self.station.tx_data += '\r' + str('Busy !! There is still a connection to this Station !!!')
-
+        self.station.tx_data += str(self.station.port)
         self.station.tx_data += self.station.promptvar
         # self.station.port.DISC_TX(self.station.conn_id)
 
