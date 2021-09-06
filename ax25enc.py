@@ -25,6 +25,9 @@ def get_ssid(inp):
 
 
 def get_call_str(call, ssid=0):
+    if type(call) == list:
+        ssid = call[1]
+        call = call[0]
     if ssid:
         return call + '-' + str(ssid)
     else:
