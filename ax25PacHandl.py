@@ -330,6 +330,7 @@ class AXPort(threading.Thread):
     def SABM_TX(self):
         os.system('clear')
         dest = input('Enter Dest. Call\r\n> ').upper()
+        # TODO !!! Select right own Call
         conn_id = dest + ':' + ax.get_call_str(DefaultParam.call, DefaultParam.ssid)
         dest = ax.get_ssid(dest)
         print('')
@@ -700,7 +701,7 @@ class AXPort(threading.Thread):
         #############################################
         # Check T0
         if time.time() > self.timer_T0 or self.timer_T0 == 0:
-            for conn_id in self.ax_conn.keys():
+            for conn_id in list(self.ax_conn.keys()):
                 # max_f = 0
                 #############################################
                 # CLI
