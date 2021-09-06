@@ -252,26 +252,35 @@ class AXPort(threading.Thread):
                 # Incoming connection SABM or SABME
                 elif rx_inp[1]['ctl']['hex'] in [0x3f, 0x7f]:              # SABM or SABME p/f True
                     self.SABM_RX(conn_id, rx_inp=rx_inp[1], owncall=own_call, axip_cl=axip_client)   # Handle connect Request
-                # Connected Stations
-                elif conn_id in self.ax_conn.keys():
-                    self.ax_conn[conn_id].axip_client = axip_client
-                    self.handle_rx_fm_conn(conn_id, rx_inp[1])
-                else:
+                elif conn_id not in self.ax_conn.keys():
                     self.DM_TX(rx_inp[1], axip_client=axip_client)
+
+        # Connected Stations
+        if conn_id in self.ax_conn.keys():
+            ############################################
+            # Check if Packet run through all Digis
+            # if not rx_inp[1]['via'] or all(el[2] for el in rx_inp[1]['via']):
+            # Incoming DISC
+            if rx_inp[1]['ctl']['hex'] == 0x53:  # DISC p/f True
+                self.DISC_RX(conn_id, rx_inp=rx_inp[1], axip_client=axip_client)  # Handle DISC Request
+            else:
+                self.ax_conn[conn_id].axip_client = axip_client
+                self.handle_rx_fm_conn(conn_id, rx_inp[1])
+        else:
     
-        ################################################
-        # DIGI
-        for v in rx_inp[1]['via']:
-            # if not v[2] and (any(digi_calls) in [v[0], v[1]]):
-            c_str = ax.get_call_str(v[0], v[1])
-            if not v[2] and (c_str in digi_calls.keys()):
-                print('DIGI > ' + str(rx_inp[0]))
-                v[2] = True
-                port = digi_calls[c_str]
-                port.DigiPeating(rx_inp[1], axip_cl=axip_client)
-                break
-            elif not v[2] and (c_str not in digi_calls.keys()):
-                break
+            ################################################
+            # DIGI
+            for v in rx_inp[1]['via']:
+                # if not v[2] and (any(digi_calls) in [v[0], v[1]]):
+                c_str = ax.get_call_str(v[0], v[1])
+                if not v[2] and (c_str in digi_calls.keys()):
+                    print('DIGI > ' + str(rx_inp[0]))
+                    v[2] = True
+                    port = digi_calls[c_str]
+                    port.DigiPeating(rx_inp[1], axip_cl=axip_client)
+                    break
+                elif not v[2] and (c_str not in digi_calls.keys()):
+                    break
 
     def handle_rx_fm_conn(self, conn_id, rx_inp):
         monitor.debug_out('')
