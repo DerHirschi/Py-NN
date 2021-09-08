@@ -66,6 +66,12 @@ class AXPort(threading.Thread):
                         dekiss_inp = ax.decode_ax25_frame(pack[2:-1])  # DEKISS
                         if dekiss_inp:
                             self.handle_rx(dekiss_inp)
+                            ############################
+                            # Monitor TODO Better Monitor
+                            monitor.monitor(dekiss_inp[1], self.port_id)
+                            ############################
+                            # MH List and Statistics
+                            mh.mh_inp(dekiss_inp, self.port_id)
                             self.timer_T0 = 0
                             monitor.debug_out('################ DEC END ##############################')
                         else:
@@ -80,7 +86,10 @@ class AXPort(threading.Thread):
                         enc = ax.encode_ax25_frame(self.tx_buffer[0][0])
                         ax.send_kiss(ser, enc)
                         mon = ax.decode_ax25_frame(bytes.fromhex(enc))
-                        self.handle_rx(mon)  # Echo TX in Monitor
+                        # self.handle_rx(mon)  # Echo TX in Monitor
+                        ############################
+                        # Monitor TODO Better Monitor
+                        monitor.monitor(mon[1], self.port_id)
                         monitor.debug_out("Out> " + str(mon))
                         self.tx_buffer = self.tx_buffer[1:]
                         n += 1
@@ -121,6 +130,12 @@ class AXPort(threading.Thread):
                             decode_inp = ax.decode_ax25_frame(msg)
                             if decode_inp:
                                 self.handle_rx(decode_inp, address)
+                                ############################
+                                # Monitor TODO Better Monitor
+                                monitor.monitor(decode_inp[1], self.port_id)
+                                ############################
+                                # MH List and Statistics
+                                mh.mh_inp(decode_inp, self.port_id)
                                 self.timer_T0 = 0
                                 monitor.debug_out('################ DEC END ##############################')
                                 call_st = decode_inp[0].split(':')[1]
@@ -163,7 +178,10 @@ class AXPort(threading.Thread):
                         else:
                             axip.sendto(enc + calc_crc, address)
                         mon = ax.decode_ax25_frame(enc)
-                        self.handle_rx(mon)  # Echo TX in Monitor
+                        # self.handle_rx(mon)  # Echo TX in Monitor
+                        ############################
+                        # Monitor TODO Better Monitor
+                        monitor.monitor(mon[1], self.port_id)
                         monitor.debug_out("Out> " + str(mon))
                         self.tx_buffer = self.tx_buffer[1:]
                         n += 1
@@ -223,16 +241,18 @@ class AXPort(threading.Thread):
     def set_t0(self):
         self.timer_T0 = float(self.parm_T0 / 100 + time.time())
 
+    ######################################################################
+    # RX Handler
+    ######################################################################
     def handle_rx(self, rx_inp, axip_client=()):
-        ############################
-        # Monitor TODO Better Monitor
-        monitor.monitor(rx_inp[1], self.port_id)
-        ############################
-        # MH List and Statistics
-        mh.mh_inp(rx_inp, self.port_id)
+
         conn_id = ax.reverse_addr_str(rx_inp[0])
         own_call = rx_inp[0].split(':')[0]
-        if own_call in self.ax_Stations.keys():
+        print('# RX HANDLE  > ' + str(conn_id))
+        print('# RX list(self.ax_conn.keys())  > ' + str(list(self.ax_conn.keys())))
+
+        if (own_call in list(self.ax_Stations.keys())) or (conn_id in list(self.ax_conn.keys())):
+            print('## RX HANDLE IN > ' + str(conn_id))
             '''
             if rx_inp[1]['via'] and all(not el[2] for el in rx_inp[1]['via']):
                 monitor.debug_out('###### Data In not Digipeated yet !!########')
@@ -240,7 +260,10 @@ class AXPort(threading.Thread):
             '''
             ############################################
             # Check if Packet run through all Digis
-            if not rx_inp[1]['via'] or all(el[2] for el in rx_inp[1]['via']):
+            if not rx_inp[1]['via'] or all(el[2] for el in rx_inp[1]['via'])\
+                    or (own_call not in list(self.ax_Stations.keys())):     # TODO Looking for the right DIGI-Bit
+                print('### RX HAN DIGI > ' + str(conn_id))
+
                 # Incoming DISC
                 if rx_inp[1]['ctl']['hex'] == 0x53:     # DISC p/f True
                     self.DISC_RX(conn_id, rx_inp=rx_inp[1], axip_client=axip_client)  # Handle DISC Request
@@ -258,20 +281,20 @@ class AXPort(threading.Thread):
                     self.handle_rx_fm_conn(conn_id, rx_inp[1])
                 else:
                     self.DM_TX(rx_inp[1], axip_client=axip_client)
-    
-        ################################################
-        # DIGI
-        for v in rx_inp[1]['via']:
-            # if not v[2] and (any(digi_calls) in [v[0], v[1]]):
-            c_str = ax.get_call_str(v[0], v[1])
-            if not v[2] and (c_str in digi_calls.keys()):
-                print('DIGI > ' + str(rx_inp[0]))
-                v[2] = True
-                port = digi_calls[c_str]
-                port.DigiPeating(rx_inp[1], axip_cl=axip_client)
-                break
-            elif not v[2] and (c_str not in digi_calls.keys()):
-                break
+        else:
+            ################################################
+            # DIGI
+            for v in rx_inp[1]['via']:
+                # if not v[2] and (any(digi_calls) in [v[0], v[1]]):
+                c_str = ax.get_call_str(v[0], v[1])
+                if not v[2] and (c_str in digi_calls.keys()):
+                    print('DIGI > ' + str(rx_inp[0]))
+                    v[2] = True
+                    port = digi_calls[c_str]
+                    port.DigiPeating(rx_inp[1], axip_cl=axip_client)
+                    break
+                elif not v[2] and (c_str not in digi_calls.keys()):
+                    break
 
     def handle_rx_fm_conn(self, conn_id, rx_inp):
         monitor.debug_out('')
@@ -305,8 +328,8 @@ class AXPort(threading.Thread):
             self.DISC_TX(conn_id)
         monitor.debug_out('#### Conn Data In END ######')
         monitor.debug_out('')
-        print('~~~~~~RX IN~~~~~~~~~~~~~~')
-        print('')
+        # print('~~~~~~RX IN~~~~~~~~~~~~~~')
+        # print('')
 
     def DigiPeating(self, rx_inp, axip_cl=()):
         print('###### DIGI FNC > ' + str(rx_inp))
@@ -409,15 +432,15 @@ class AXPort(threading.Thread):
         # ??? Because of Threading and global Vars ???
         no_ack = list(self.ax_conn[conn_id].noAck)             # Wie waere es mit Modulo Restklassen ??
         tmp_tx_buff = list(self.ax_conn[conn_id].tx)
-        print('### conf. VS > ' + str(no_ack))
+        # print('### conf. VS > ' + str(no_ack))
     
         if no_ack:
             ind_val = (rx_inp['ctl']['nr'] - 1) % 8
-            print('### conf. VS ind_val > ' + str(ind_val))
+            # print('### conf. VS ind_val > ' + str(ind_val))
             if ind_val in no_ack:
                 ind = no_ack.index(ind_val) + 1
                 tmp_ack = no_ack[:ind]
-                print('### conf. tmp_Ack > ' + str(self.ax_conn[conn_id].noAck))
+                # print('### conf. tmp_Ack > ' + str(self.ax_conn[conn_id].noAck))
                 #############################################
                 # Fetch unconfirmed I Frames in Buffer
                 rmv_list = []
@@ -432,8 +455,8 @@ class AXPort(threading.Thread):
                     no_ack.remove(el['typ'][3])
                     # TODO RTT Calc just on RR cmd Frame???
                     self.ax_conn[conn_id].parm_RTT = (time.time() - self.ax_conn[conn_id].rtt[int(el['typ'][3])]) * 100
-                    print('######### Parm RTT > ' + str(self.ax_conn[conn_id].parm_RTT))
-                    print('######### Parm IRTT > ' + str(self.ax_conn[conn_id].parm_IRTT))
+                    # print('######### Parm RTT > ' + str(self.ax_conn[conn_id].parm_RTT))
+                    # print('######### Parm IRTT > ' + str(self.ax_conn[conn_id].parm_IRTT))
                     del self.ax_conn[conn_id].rtt[int(el['typ'][3])]
                     # print('######### RTT > ' + str(ax_conn[conn_id].rtt))
     
@@ -481,7 +504,7 @@ class AXPort(threading.Thread):
             else:
                 self.ax_conn[conn_id].ack = [True, self.ax_conn[conn_id].ack[1], False]
     
-            print('###### I-Frame > ' + str(rx_inp['data']))
+            # print('###### I-Frame > ' + str(rx_inp['data']))
         else:
             print('###### REJ_TX inp > ' + str(rx_inp))
             self.ax_conn[conn_id].rej = [True, rx_inp['ctl']['pf']]
@@ -611,7 +634,7 @@ class AXPort(threading.Thread):
         pac = self.get_tx_packet_item(conn_id=conn_id)
         pac['typ'] = ['RR', self.ax_conn[conn_id].ack[1], self.ax_conn[conn_id].vr]
         pac['cmd'] = self.ax_conn[conn_id].ack[2]
-        print('######## Send RR >')
+        # print('######## Send RR >')
         self.ax_conn[conn_id].ack = [False, False, False]
         return pac
 

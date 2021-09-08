@@ -3,16 +3,16 @@ import ax25enc as ax
 
 
 class CLIDefault(object):
-    def __init__(self, Station):
-        self.station = Station
+    def __init__(self, Connction):
+        self.conncetion = Connction
         self.cmd_inp = []
         self.stat = ''  # DISC,  HOLD...
         self.scr = []  # Script mode ( Func, Step )
         self.scr_run = False  # Script mode / Don't wait for input
         # self.cmd_dic = dict(self.cmd_dic_default)
-        Station.qtext = Station.qtext.format(Station.call_str)
-        self.cli_msg_tag = Station.cli_msg_tag
-        self.cli_sufix = Station.cli_sufix
+        Connction.qtext = Connction.qtext.format(Connction.call_str)
+        self.cli_msg_tag = Connction.cli_msg_tag
+        self.cli_sufix = Connction.cli_sufix
         self.cmd_dic_default = {}
         self.cmd_dic = {}
 
@@ -21,14 +21,14 @@ class CLIDefault(object):
         if self.stat != 'HOLD':
             if not self.stat:
                 # if not self.scr:
-                if self.station.rx_data:
+                if self.conncetion.rx_data:
                     # print(str(self.station.rx_data[0][0]))
-                    tmp = self.station.rx_data[0][0].decode('UTF-8', errors='ignore')
+                    tmp = self.conncetion.rx_data[0][0].decode('UTF-8', errors='ignore')
                     if '\r' in tmp:
                         self.cmd_inp = tmp.split('\r')[:-1]
                     else:
                         self.cmd_inp = [tmp]
-                    self.station.rx_data = self.station.rx_data[1:]
+                    self.conncetion.rx_data = self.conncetion.rx_data[1:]
                     # self.station.tx_data += self.station.prompt
                 if self.cmd_inp:
                     tmp = self.cmd_inp
@@ -55,15 +55,15 @@ class CLIDefault(object):
                     self.scr[0]()
 
             # Wait until all Data are sendet
-            elif self.stat == 'DISC' and all(not el for el in [self.station.tx_data,
-                                                               self.station.tx,
-                                                               self.station.tx_ctl,
-                                                               self.station.noAck]):
+            elif self.stat == 'DISC' and all(not el for el in [self.conncetion.tx_data,
+                                                               self.conncetion.tx,
+                                                               self.conncetion.tx_ctl,
+                                                               self.conncetion.noAck]):
                 self.disc_cmd()
 
     def exec_cmd(self, cmd_in=''):
-        print('CMD IN > ' + str(cmd_in))
-        print('CMD DICT > ' + str(self.cmd_dic))
+        # print('CMD IN > ' + str(cmd_in))
+        # print('CMD DICT > ' + str(self.cmd_dic))
         if cmd_in:
             if cmd_in[:2].upper() in self.cmd_dic.keys():
                 self.cmd_dic[cmd_in[:2].upper()][0](self)
@@ -72,13 +72,13 @@ class CLIDefault(object):
             else:
                 self.tx_cli_msg(' Command not found ! ')
         else:
-            self.station.tx_data += self.station.promptvar
+            self.conncetion.tx_data += self.conncetion.promptvar
 
     ############################################
     # Default CMDs
     def tx_cli_msg(self, msg):
-        self.station.tx_data += '\r' + self.cli_msg_tag.format(msg)
-        self.station.tx_data += self.station.promptvar
+        self.conncetion.tx_data += '\r' + self.cli_msg_tag.format(msg)
+        self.conncetion.tx_data += self.conncetion.promptvar
 
     def vers(self):
         """
@@ -86,6 +86,7 @@ class CLIDefault(object):
               "* Testing Stuff Station. I don't know something with *\r" \
               "*  AX25 de/encoding in Python from MD2SAW (Manuel)   *\r" \
               "******************************************************\r"
+        """
         """
         out = "*****************************************\r" \
               "*  ____        _   _  ___  ____  _____  *\r" \
@@ -97,9 +98,21 @@ class CLIDefault(object):
               "* Under development by MD2SAW (Manuel)  *\r" \
               "* Will be published on GitHub..         *\r" \
               "*****************************************\r"
-
-        self.station.tx_data += '\r' + out
-        self.station.tx_data += self.station.promptvar
+        """
+        out = "***************************************\r" \
+              "*  ____                  _   _ _   _  *\r" \
+              "* |  _ \ _   _          | \ | | \ | | *\r" \
+              "* | |_) | | | |  _____  |  \| |  \| | *\r" \
+              "* |  __/| |_| | |_____| | |\  | |\  | *\r" \
+              "* |_|    \__, |         |_| \_|_| \_| *\r" \
+              "*        |___/                        *\r" \
+              "***************************************\r" \
+              "*         < Python - Net Node >       *\r" \
+              "* Under development by MD2SAW (Manuel)*\r" \
+              "* Will be published on GitHub..       *\r" \
+              "***************************************\r"
+        self.conncetion.tx_data += '\r' + out
+        self.conncetion.tx_data += self.conncetion.promptvar
 
     def list_cmd_help(self):
         out = 'Available Commands:'
@@ -115,22 +128,22 @@ class CLIDefault(object):
             else:
                 fl = el
             out += '{} < {}\r'.format(fl, self.cmd_dic[el][1])
-        self.station.tx_data += out
-        self.station.tx_data += self.station.promptvar
+        self.conncetion.tx_data += out
+        self.conncetion.tx_data += self.conncetion.promptvar
 
     def mh_cmd(self):
-        out = self.station.mh.mh_out_cli()
-        self.station.tx_data += out
-        self.station.tx_data += self.station.promptvar
+        out = self.conncetion.mh.mh_out_cli()
+        self.conncetion.tx_data += out
+        self.conncetion.tx_data += self.conncetion.promptvar
 
     def quit_cmd(self):
         print('######## CLI Disc Q/B')
         self.stat = 'DISC'
-        self.station.tx_data += self.station.qtext
+        self.conncetion.tx_data += self.conncetion.qtext
 
     def disc_cmd(self):
         print('######## CLI Disc CMD')
-        self.station.port.DISC_TX(self.station.conn_id)
+        self.conncetion.port.DISC_TX(self.conncetion.conn_id)
 
 
 #################################################
@@ -144,25 +157,25 @@ class CLIDefault(object):
             file = open('test.gz', 'rb')
             f_out = file.read()
             file.close()
-            self.station.tx_data += '\r#BIN#' + str(len(f_out)) + '\r'
+            self.conncetion.tx_data += '\r#BIN#' + str(len(f_out)) + '\r'
 
             # Init Fnc Count
             self.scr_run = False
             self.scr = [self.ft_dn, 0]
         elif self.scr[1] == 0:
             inp = self.cmd_inp[0]
-            print(inp)
+            # print(inp)
             if inp == '#OK#':
                 # if not self.station.noAck and not self.station.tx_data:
                 file = open('test.gz', 'rb')
                 f_out = file.read()
                 file.close()
-                self.station.tx_bin += f_out
+                self.conncetion.tx_bin += f_out
                 self.scr_run = True
                 self.scr = [self.ft_dn, 1]
         elif self.scr[1] == 1:
-            if not self.station.noAck and not self.station.tx_bin:
-                self.station.tx_data += '#OK#\r'
+            if not self.conncetion.noAck and not self.conncetion.tx_bin:
+                self.conncetion.tx_data += '#OK#\r'
                 self.tx_cli_msg(' Done ! ')
                 self.scr_run = False
                 self.scr = []
@@ -171,21 +184,21 @@ class CLIDefault(object):
         f_out = b'123456789'
 
         if not self.scr:
-            self.station.tx_data += '\r#BIN#' + str(len(f_out)) + '\r'
+            self.conncetion.tx_data += '\r#BIN#' + str(len(f_out)) + '\r'
             # Init Fnc Count
             self.scr_run = False
             self.scr = [self.ft_dt, 0]
         elif self.scr[1] == 0:
             inp = self.cmd_inp[0]
-            print(inp)
+            # print(inp)
             if inp == '#OK#':
                 # if not self.station.noAck and not self.station.tx_data:
-                self.station.tx_bin += f_out
+                self.conncetion.tx_bin += f_out
                 self.scr_run = True
                 self.scr = [self.ft_dt, 1]
         elif self.scr[1] == 1:
-            if not self.station.noAck and not self.station.tx_bin:
-                self.station.tx_data += '#OK#\r'
+            if not self.conncetion.noAck and not self.conncetion.tx_bin:
+                self.conncetion.tx_data += '#OK#\r'
                 self.tx_cli_msg(' Done ! ')
                 self.scr_run = False
                 self.scr = []
@@ -211,8 +224,8 @@ class CLIDefault(object):
     # Send N Packets with N len
     def testfnc(self):
         if not self.scr:
-            self.station.tx_data += '\r< Test Packet Sender >'
-            self.station.tx_data += '\r< How many Test-Packets should be sent? Enter Digit Number. (Max 500) >'
+            self.conncetion.tx_data += '\r< Test Packet Sender >'
+            self.conncetion.tx_data += '\r< How many Test-Packets should be sent? Enter Digit Number. (Max 500) >'
             self.tx_cli_msg(' Enter A to abort. ')
             # Init Fnc Count
             self.scr_run = False
@@ -220,7 +233,7 @@ class CLIDefault(object):
         elif self.scr[1] == 1:
             n = self.cmd_inp[0]
             if n.isdigit():
-                self.station.tx_data += '\r< How big should the packages be? Enter Digit Number. (Max 250) >'
+                self.conncetion.tx_data += '\r< How big should the packages be? Enter Digit Number. (Max 250) >'
                 self.tx_cli_msg(' Enter A to abort. ')
                 n = max(min(int(n), 500), 1)
                 self.scr.append(n)
@@ -228,7 +241,7 @@ class CLIDefault(object):
                 self.tx_cli_msg(' Canceled !! ')
                 self.scr = []
             else:
-                self.station.tx_data += '\r< Please enter Digit Number from 1 to 500 or A for Abort >'
+                self.conncetion.tx_data += '\r< Please enter Digit Number from 1 to 500 or A for Abort >'
                 self.tx_cli_msg(' How many Test-Packets should be sent? Enter Digit Number. (Max 500) ')
                 self.scr = [self.testfnc, 0]
         elif self.scr[1] == 2:
@@ -236,33 +249,33 @@ class CLIDefault(object):
             if n2.isdigit():
                 n = self.scr[2]
                 n2 = max(min(int(n2), 250), 1)
-                self.scr = [self.testfnc, 3, int(self.station.ax25PacLen)]
-                self.station.ax25PacLen = n2
+                self.scr = [self.testfnc, 3, int(self.conncetion.ax25PacLen)]
+                self.conncetion.ax25PacLen = n2
                 out = ''
                 for c in range(n):
                     for i in range(n2):
                         out += str(c % 10)
 
-                self.station.tx_data += out
+                self.conncetion.tx_data += out
                 self.scr_run = True
             elif n2.upper() == 'A':
                 self.tx_cli_msg(' Canceled !! ')
                 self.scr = []
             else:
-                self.station.tx_data += '\r< Please enter Digit Number from 1 to 250 or A for Abort >'
+                self.conncetion.tx_data += '\r< Please enter Digit Number from 1 to 250 or A for Abort >'
                 self.tx_cli_msg(' How big should the packages be? ')
                 self.scr = [self.testfnc, 1, self.scr[2]]
         # Wait for sending all Data
         elif self.scr[1] >= 3:
-            if not self.station.tx and not self.station.tx_data:
-                self.station.ax25PacLen = int(self.scr[2])
-                self.station.tx_data += '\r'
+            if not self.conncetion.tx and not self.conncetion.tx_data:
+                self.conncetion.ax25PacLen = int(self.scr[2])
+                self.conncetion.tx_data += '\r'
                 self.tx_cli_msg(' Done !! ')
                 self.scr = []
                 self.scr_run = False
             elif self.cmd_inp:
-                self.station.ax25PacLen = int(self.scr[2])
-                self.station.tx_data += '\r'
+                self.conncetion.ax25PacLen = int(self.scr[2])
+                self.conncetion.tx_data += '\r'
                 self.tx_cli_msg(' Canceled !! ')
                 self.scr = []
                 self.scr_run = False
@@ -276,8 +289,8 @@ class CLIDefault(object):
     # Send N Packets . PacLen n + 1
     def testfnc2(self):
         if not self.scr:
-            self.station.tx_data += '\r< Test Packet Sender 2 >'
-            self.station.tx_data += '\r< How many Test-Packets should be sent? Enter Digit Number. (Max 60) >'
+            self.conncetion.tx_data += '\r< Test Packet Sender 2 >'
+            self.conncetion.tx_data += '\r< How many Test-Packets should be sent? Enter Digit Number. (Max 60) >'
             self.tx_cli_msg(' Enter A to abort. ')
             # Init Fnc Count
             self.scr_run = False
@@ -285,7 +298,7 @@ class CLIDefault(object):
         elif self.scr[1] == 1:
             n = self.cmd_inp[0]
             if n.isdigit():
-                self.station.tx_data += '\r< Start length of Packet ? Enter Digit Number. (Max 190) >'
+                self.conncetion.tx_data += '\r< Start length of Packet ? Enter Digit Number. (Max 190) >'
                 self.tx_cli_msg(' Enter A to abort. ')
                 n = max(min(int(n), 60), 1)
                 self.scr.append(n)
@@ -293,7 +306,7 @@ class CLIDefault(object):
                 self.tx_cli_msg(' Canceled !! ')
                 self.scr = []
             else:
-                self.station.tx_data += '\r< Please enter Digit Number from 1 to 60 or A for Abort >'
+                self.conncetion.tx_data += '\r< Please enter Digit Number from 1 to 60 or A for Abort >'
                 self.tx_cli_msg(' How many Test-Packets should be sent? Enter Digit Number. (Max 60) ')
                 self.scr = [self.testfnc2, 0]
         elif self.scr[1] == 2:
@@ -301,43 +314,43 @@ class CLIDefault(object):
             if n2.isdigit():
                 n = int(self.scr[2])
                 n2 = max(min(int(n2), 190), 1)
-                self.scr = [self.testfnc2, 3, int(self.station.ax25PacLen), 0, n2 + 1, n]
-                self.station.ax25PacLen = n2
+                self.scr = [self.testfnc2, 3, int(self.conncetion.ax25PacLen), 0, n2 + 1, n]
+                self.conncetion.ax25PacLen = n2
                 out = ''
                 for c in range(n2):
                     out += '#'
                 out += '\r'
-                self.station.tx_data += out
+                self.conncetion.tx_data += out
                 self.scr_run = True
             elif n2.upper() == 'A':
                 self.tx_cli_msg(' Canceled !! ')
                 self.scr = []
             else:
-                self.station.tx_data += '\r< Please enter Digit Number from 1 to 190 or A for Abort >'
+                self.conncetion.tx_data += '\r< Please enter Digit Number from 1 to 190 or A for Abort >'
                 self.tx_cli_msg(' Start length of Packet ? ')
                 self.scr = [self.testfnc2, 1, self.scr[2]]
         # Wait for sending all Data
         elif self.scr[1] >= 3:
-            if not self.station.tx and not self.station.tx_data:
+            if not self.conncetion.tx and not self.conncetion.tx_data:
                 if self.scr[3] < self.scr[5]:
-                    self.station.ax25PacLen = int(self.scr[4])
+                    self.conncetion.ax25PacLen = int(self.scr[4])
                     out = ''
-                    for c in range(self.station.ax25PacLen):
+                    for c in range(self.conncetion.ax25PacLen):
                         out += '#'
                     out += '\r'
-                    self.station.tx_data += out
+                    self.conncetion.tx_data += out
                     self.scr = [self.testfnc2, 3, int(self.scr[2]), int(self.scr[3]) + 1, int(self.scr[4]) + 1,
                                 int(self.scr[5])]
 
                 else:
-                    self.station.ax25PacLen = int(self.scr[2])
-                    self.station.tx_data += '\r'
+                    self.conncetion.ax25PacLen = int(self.scr[2])
+                    self.conncetion.tx_data += '\r'
                     self.tx_cli_msg(' Done !! ')
                     self.scr = []
                     self.scr_run = False
             elif self.cmd_inp:
-                self.station.ax25PacLen = int(self.scr[2])
-                self.station.tx_data += '\r'
+                self.conncetion.ax25PacLen = int(self.scr[2])
+                self.conncetion.tx_data += '\r'
                 self.tx_cli_msg(' Canceled !! ')
                 self.scr = []
                 self.scr_run = False
@@ -348,19 +361,19 @@ class CLIDefault(object):
                 self.scr[1] += 1
 
     def sh_parm(self):
-        out = ''.join("%s: %s\r" % item for item in vars(self.station).items())
-        self.station.tx_data += '\r< Connection Parameter >\r\r'
-        self.station.tx_data += out
-        self.station.tx_data += self.station.promptvar
+        out = ''.join("%s: %s\r" % item for item in vars(self.conncetion).items())
+        self.conncetion.tx_data += '\r< Connection Parameter >\r\r'
+        self.conncetion.tx_data += out
+        self.conncetion.tx_data += self.conncetion.promptvar
 
     def rtt_parm(self):
         def send_parm():
             # out = 'parm_T2> {}\r'.format(self.station.parm_T2)
             # out += 'parm_IRTT> {}\r'.format(self.station.parm_IRTT)
-            out = 'parm_RTT> {}\r'.format(self.station.parm_RTT)
+            out = 'parm_RTT> {}\r'.format(self.conncetion.parm_RTT)
             # out += 'deb_calc_t1> {}\r'.format(self.station.deb_calc_t1)
-            self.station.tx_data += '\r< RTT Parameter >\r\r'
-            self.station.tx_data += out
+            self.conncetion.tx_data += '\r< RTT Parameter >\r\r'
+            self.conncetion.tx_data += out
             # self.station.tx_data += self.station.promptvar
 
         if not self.scr:
@@ -392,73 +405,98 @@ class CLIDefault(object):
 ####################################################################
 # class CLINode(CLIDefault):
     def connect(self):
-        inp = self.cmd_inp[0]
-        print('######## INP1> ' + str(inp))
+        inp = str(self.cmd_inp[0]).upper()
+        # print('######## INP1> ' + str(inp))
         inp = inp.split(' ')[1:]
-        print('######## INP2> ' + str(inp))
+        # print('######## INP2> ' + str(inp))
         if not inp:
             self.tx_cli_msg(' Please enter valid Call !! ')
             return
-        dest_call = inp[0].upper()
-        caller_call = ax.get_call_str(self.station.dest)
+        dest_call = inp[0]
+        caller_call = ax.get_call_str(self.conncetion.dest)
         print('######## caller_call> ' + str(caller_call))
         # TODO !!!!!!!!! Via list !!!!!!
-        via = [self.station.call_str]
-        via_list = list(self.station.via)
-        via_list.reverse()
+        # via = [self.conncetion.call_str]
+        via = []
+        conn_via_list = list(self.conncetion.via)
+        conn_via_list.reverse()
+        # via_list = []
+        # MD2SAW:MD3SAW-11:DX0SAW:CB0SAW
+        # MD2SAW:MD2SAW-2:CB0SAW:DNX527:MD3SAW-11:DX0SAW:CB0SAW
+        # via_list.reverse()
         # TODO !!!!!!! Ports
+
+
+        for el in conn_via_list:
+            via.append(ax.get_call_str(el))
+        via.append(self.conncetion.call_str)
         if len(inp) > 1:
             via += inp[1:]
-        conn_id = dest_call + ':' + caller_call # + ':' + self.station.call_str
-        dest = ax.get_ssid(dest_call)
+            # via.reverse()
+        conn_id = dest_call + ':' + caller_call
+        # conn_id = caller_call + ':' + dest_call
+
+        conn_via_list = []
+        tr = True
         for el in via:
-            el = el.upper()
-            # conn_id += ':' + el
+            conn_id += ':' + el
             tm = ax.get_ssid(el)
-            """
-            if not via_list:            # Own Station set to True ( Digeipeated )
+            if tr:
                 tm.append(True)         # Digi Trigger ( H BIT )
+                if el == self.conncetion.call_str:
+                    tr = False
             else:
                 tm.append(False)        # Digi Trigger ( H BIT )
-            """
-            tm.append(False)        # Digi Trigger ( H BIT )
-            via_list.append(tm)
+            conn_via_list.append(tm)
 
-            # tm.append(False)
-        for el in via_list:
-            conn_id += ':' + el[0]
-
-
+        # conn_id = ax.reverse_addr_str(conn_id)
         print(conn_id)
         print(via)
-        print(via_list)
+        print(conn_via_list)
 
-        self.station.tx_data += '\r' + '<Dummy for Testing. Not working yet>' + '\r'
-        self.station.tx_data += '\r' + str(conn_id)
-        self.station.tx_data += '\r' + str(via)
-        self.station.tx_data += '\r' + str(via_list)
+        self.conncetion.tx_data += '\r' + '<Dummy for Testing. Not working yet>' + '\r'
+        self.conncetion.tx_data += '\r' + str(conn_id)
+        self.conncetion.tx_data += '\r' + str(via)
+        self.conncetion.tx_data += '\r' + str(conn_via_list)
 
-        if conn_id not in self.station.port.ax_conn.keys():
-            print('>>>> 1 ' + str(self.station.port.ax_Stations[self.station.call_str]))
-
-            self.station.port.ax_conn[conn_id] = self.station.port.ax_Stations[self.station.call_str]()
-            print('>>>> 2 ' + str(self.station.port.ax_conn[conn_id]))
-            self.station.port.ax_conn[conn_id].call = self.station.dest
-            self.station.port.ax_conn[conn_id].dest = [dest[0], dest[1]]
-            self.station.port.ax_conn[conn_id].via = via_list
-            self.station.port.ax_conn[conn_id].stat = 'SABM'
-            tx_pack = self.station.port.get_tx_packet_item(conn_id=conn_id)
+        if conn_id not in self.conncetion.port.ax_conn.keys():
+            print('>>>> 1 ' + str(self.conncetion.port.ax_Stations[self.conncetion.call_str]))
+            print('**********************************')
+            print('**********************************')
+            print('>>>> 2 ' + str(self.conncetion.port.ax_conn))
+            print('-----------------------------------')
+            # TODO !!!!!!!!!!!!!!!!
+            # TODO !!!!!!!!!!!!!!!!
+            self.conncetion.port.ax_conn[conn_id] = self.conncetion.port.ax_Stations[self.conncetion.call_str]()
+            print('>>>> 3 ' + str(self.conncetion.port.ax_conn))
+            print('**********************************')
+            print('**********************************')
+            # TODO !!!!!!!!!!!!!!!!
+            print('>>>> 4 ' + str(self.conncetion.port.ax_conn[conn_id]))
+            # TODO !!!!!!!!!!!!!!!!
+            self.conncetion.port.ax_conn[conn_id].call = self.conncetion.dest
+            dest = ax.get_ssid(dest_call)
+            # TODO !!!!!!!!!!!!!!!!
+            self.conncetion.port.ax_conn[conn_id].dest = [dest[0], dest[1]]
+            self.conncetion.port.ax_conn[conn_id].via = conn_via_list
+            self.conncetion.port.ax_conn[conn_id].conn_id = conn_id
+            self.conncetion.port.ax_conn[conn_id].port = self.conncetion.port
+            self.conncetion.port.ax_conn[conn_id].stat = 'SABM'
+            tx_pack = self.conncetion.port.get_tx_packet_item(conn_id=conn_id)
             tx_pack['typ'] = ['SABM', True]
             tx_pack['cmd'] = True
-            self.station.port.ax_conn[conn_id].tx = [tx_pack]
-            # set_t1(conn_id)
-            self.station.port.set_t3(conn_id)
-            self.station.tx_data += '\r' + str(self.station.port.ax_conn)
-            self.station.tx_data += '\r' + str("OK ..")
-        else:
-            self.station.tx_data += '\r' + str('Busy !! There is still a connection to this Station !!!')
+            deb = ''.join("%s: %s\r\n" % item for item in vars(self.conncetion.port.ax_conn[conn_id]).items())
+            print(deb)
 
-        self.station.tx_data += self.station.promptvar
+            self.conncetion.port.ax_conn[conn_id].tx = [tx_pack]
+            # set_t1(conn_id)
+            self.conncetion.port.set_t3(conn_id)
+            self.conncetion.tx_data += '\r' + str(self.conncetion.port.ax_conn)
+            self.conncetion.tx_data += '\r' + str("OK ..")
+        else:
+            self.conncetion.tx_data += '\r' + str('Busy !! There is still a connection to this Station !!!')
+
+        self.conncetion.tx_data += self.conncetion.promptvar
         # self.station.port.DISC_TX(self.station.conn_id)
 
     def port(self):
@@ -485,8 +523,8 @@ class CLIDefault(object):
                     config.ax_ports[ke].ax_Stations[stat].ax25N2,
                     str(config.ax_ports[ke].ax_Stations[stat].cli_type))
 
-        self.station.tx_data += '\r' + out
-        self.station.tx_data += self.station.promptvar
+        self.conncetion.tx_data += '\r' + out
+        self.conncetion.tx_data += self.conncetion.promptvar
 
     def ax_clients(self):
         out = 'Call-------IP----------------------Mode----Port---Timeout--IP/Hostname----\r'
@@ -507,16 +545,16 @@ class CLIDefault(object):
                         '',
                         config.ax_ports[ke].ax_conn[conn_id].axip_client[0]
                     )
-        self.station.tx_data += '\r' + out
-        self.station.tx_data += self.station.promptvar
+        self.conncetion.tx_data += '\r' + out
+        self.conncetion.tx_data += self.conncetion.promptvar
 
     def ax_routes(self):
         out = ''
         for ke in config.ax_ports.keys():
             if config.ax_ports[ke].port_typ == 'AXIP':
                 out += config.ax_ports[ke].axip_clients.cli_cmd_out()
-        self.station.tx_data += out
-        self.station.tx_data += self.station.promptvar
+        self.conncetion.tx_data += out
+        self.conncetion.tx_data += self.conncetion.promptvar
 
     """
 
@@ -588,7 +626,7 @@ def init_cli(conn_obj):
         })
 
     conn_obj.cli.cmd_dic = dict(tmp_cmd_dict)
-    print(conn_obj.cli.cmd_dic)
+    # print(conn_obj.cli.cmd_dic)
     """
     conn_obj.cli = {
         1: CLINode,
