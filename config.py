@@ -1,4 +1,3 @@
-import ax25enc as ax
 import remote_cli
 from remote_cli import init_cli
 from ax25Statistics import *
@@ -62,8 +61,10 @@ class DefaultParam(object):
             # 'conn_id': node_link_Obj
         }
         ###################################
-        # CLI
+        # MH Obj
         self.mh = mh
+        ###################################
+        # CLI Obj
         self.cli = None
         if self.cli_type:
             self.cli = remote_cli.CLIDefault(self)
@@ -221,6 +222,7 @@ conf_ax_ports = {
         'stat_list': [MD3SAW10, MD3SAW12]
     },
 }
+
 
 class NodeLink(object):
     def __init__(self, connection, caller_id):

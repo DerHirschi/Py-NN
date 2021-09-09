@@ -13,8 +13,9 @@ class MH(object):
         try:
             with open(mh_data_file, 'rb') as inp:
                 self.calls = pickle.load(inp)
-                print(self.calls)
-        except (EOFError, FileNotFoundError):
+        except FileNotFoundError:
+            os.system('touch {}'.format(mh_data_file))
+        except EOFError:
             pass
         """
         self.connections = {

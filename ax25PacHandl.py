@@ -5,6 +5,7 @@ import threading
 import monitor
 from Clients_cfg import AXIPClients
 from config import *
+import ax25enc as ax
 
 # TESTING and DEBUGGING
 debug = monitor.debug
@@ -27,6 +28,7 @@ class AXPort(threading.Thread):
         }
         self.port_id = port_conf_id
         self.port_typ = conf_ax_ports[port_conf_id]['typ']
+        self.axip_clients = None
         if self.port_typ == 'KISS':
             self.ser_port = conf_ax_ports[port_conf_id]['parm1']
             self.ser_baud = conf_ax_ports[port_conf_id]['parm2']
@@ -188,6 +190,10 @@ class AXPort(threading.Thread):
                         n += 1
             axip.close()
         mh.save_mh_data()
+        #####################################################
+        # TODO Could cause Problems with multiple AXIP Ports
+        if self.axip_clients:
+            self.axip_clients.save_data()
 
     def get_tx_packet_item(self, rx_inp=None, conn_id=None):
         if rx_inp:

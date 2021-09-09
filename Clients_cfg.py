@@ -1,4 +1,8 @@
 import time
+import os
+import pickle
+
+axip_clientList = 'data/axip_clientList.pkl'
 
 
 class Client(object):
@@ -26,6 +30,13 @@ class AXIPClients(object):
             #       'lastsee': 0.0,
             # }
         }
+        try:
+            with open(axip_clientList, 'rb') as inp:
+                self.clients = pickle.load(inp)
+        except FileNotFoundError:
+            os.system('touch {}'.format(axip_clientList))
+        except EOFError:
+            pass
 
     def cli_cmd_out(self):
         out = ''
@@ -39,3 +50,12 @@ class AXIPClients(object):
             )
         out += '\r'
         return out
+
+    def save_data(self):
+        try:
+            with open(axip_clientList, 'wb') as outp:
+                pickle.dump(self.clients, outp, pickle.HIGHEST_PROTOCOL)
+        except FileNotFoundError:
+            os.system('touch {}'.format(axip_clientList))
+            with open(axip_clientList, 'wb') as outp:
+                pickle.dump(self.clients, outp, pickle.HIGHEST_PROTOCOL)
