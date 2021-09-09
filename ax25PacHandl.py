@@ -584,7 +584,13 @@ class AXPort(threading.Thread):
             self.tx_buffer.append([dict(self.UA_frm(rx_inp)), tuple(self.ax_conn[conn_id].axip_client)])       # UA_TX
             for k in list(self.ax_conn[conn_id].node_links.keys()):
                 self.ax_conn[conn_id].node_links[k].link.node_links[conn_id].disc()
-            self.ax_conn[conn_id] = None
+                """
+                if self.ax_conn[conn_id].node_links[k].link.node_links[conn_id].caller_id != conn_id:
+                    self.ax_conn[conn_id].node_links[k].link.node_links[conn_id].link.cli.state = 'DISC'
+                    print('CLI DISC> ' + str(conn_id))
+                """
+                self.ax_conn[conn_id].node_links[k].disc()
+            # self.ax_conn[conn_id] = None
             del self.ax_conn[conn_id]
         else:
             self.tx_buffer.append([self.DM_frm(rx_inp), axip_client])
@@ -728,6 +734,14 @@ class AXPort(threading.Thread):
         if time.time() > self.timer_T0 or self.timer_T0 == 0:
             for conn_id in list(self.ax_conn.keys()):
                 # max_f = 0
+                #############################
+                # Dead Link Check
+                for ke in self.ax_conn[conn_id].node_links.keys():
+                    if conn_id != self.ax_conn[conn_id].node_links[ke].caller_id and\
+                                self.ax_conn[conn_id].node_links[ke].stat == 'DISC' and\
+                                self.ax_conn[conn_id].stat != 'DISC':
+                        print(">>>>>>> " + str(ke))
+                        self.DISC_TX(conn_id)
                 #############################################
                 # CLI
                 self.ax_conn[conn_id].handle_cli()
@@ -983,10 +997,19 @@ else:
                 print(str(sel_station))
                 # for e in vars(ax_conn[sel_station]):
                     # print(str(e))
+                print('<Connection>')
                 print('\r\n'.join("%s: %s" % item for item in vars(kiss.ax_conn[sel_station]).items()))
 
                 print('~~~~~~~~~~~~~~~~~~~~~~~~~')
-                print('')
+                print('<CLI>')
+                print('\r\n'.join("%s: %s" % item for item in vars(kiss.ax_conn[sel_station].cli).items()))
+
+                print('<Links>')
+                for k in kiss.ax_conn[sel_station].node_links.keys():
+                    print('\r\n<{}>\r\n'.format(k))
+                    print('\r\n'.join("%s: %s" % item for item in vars(kiss.ax_conn[sel_station].node_links[k]).items()))
+                print('~~~~~~~~~~~~~~~~~~~~~~~~~')
+
             elif i.upper() == 'L':
                 print('')
                 for k in kiss.ax_conn.keys():

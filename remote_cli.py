@@ -483,9 +483,11 @@ class CLIDefault(object):
             # self.conncetion.port.set_t3(conn_id)
             ###############
             # Add Link
-            link = config.NodeLink(self.conncetion.port.ax_conn[conn_id])
-            own_link = config.NodeLink(self.conncetion)
+            link = config.NodeLink(self.conncetion.port.ax_conn[conn_id], self.conncetion.conn_id)
+            own_link = config.NodeLink(self.conncetion, self.conncetion.conn_id)
+            # ADD DEST LINK
             self.conncetion.node_links[conn_id] = link
+            # ADD OWN LINK TO DEST STATION
             self.conncetion.port.ax_conn[conn_id].node_links[self.conncetion.conn_id] = own_link
             #####################
             # Init Script Mode
@@ -496,12 +498,13 @@ class CLIDefault(object):
             self.conncetion.tx_data += '\r' + self.conncetion.promptvar
             self.conncetion.tx_data += "Link setup..."
         else:
-            self.conncetion.tx_data += '\r' + str('Busy !! There is still a connection to this Station !!!')
+            self.conncetion.tx_data += '\r' + 'Busy !! There is still a connection to this Station !!!'
 
         # self.conncetion.tx_data += self.conncetion.promptvar
         # self.station.port.DISC_TX(self.station.conn_id)
 
     def node_relay_data(self):
+        # print(self.conncetion.conn_id)
         if not self.conncetion.node_links.keys():
             self.stat = ''
             ####################################################
@@ -511,47 +514,41 @@ class CLIDefault(object):
             )
             self.conncetion.tx_data += self.conncetion.promptvar
             return
-
+        #####################################################
+        # Multiple Links Possible. But should cause Problems
         for k in list(self.conncetion.node_links.keys()):
             link = self.conncetion.node_links[k]
-
             ################
             # Status check
             if link.stat == 'SABM':
                 if link.link.stat == 'RR':
                     link.stat = 'RR'
                     self.conncetion.tx_data += '\r*** Connected to {}\r'.format(
-                        link.link.call_str
+                        ax.get_call_str(link.link.dest)
                     )
             ################
             # Relay Data
+            # elif link.stat == 'RR' and link.link.node_links[self.conncetion.conn_id].stat == 'RR':
             elif link.stat == 'RR':
                 # RX > TX
                 if link.link.rx_data:
                     tmp = list(link.link.rx_data)
-                    # self.conncetion.tx_data += link.link.rx_data
                     for el in tmp:
-                        print('NODE> ' + str(el))
-                        # self.conncetion.tx_data += el[0].decode(errors='ignore')
+                        # print('NODE> ' + str(el))
                         self.conncetion.tx_bin += el[0]
                         link.link.rx_data.remove(el)
                 # TX > RX
                 if self.conncetion.rx_data:
                     for el in list(self.conncetion.rx_data):
                         link.link.tx_bin += el[0]
-                    print()
+            # elif link.stat == 'DISC' or link.link.node_links[self.conncetion.conn_id].stat == 'DISC':
             elif link.stat == 'DISC':
-                # link.link.cli.state = ''
-                # self.stat = ''
+                print(link.caller_id + ' ' + self.conncetion.conn_id)
+                if link.caller_id != self.conncetion.conn_id:
+                    self.stat = 'DISC'
+                    link.link.cli.state = 'DISC'
                 del self.conncetion.node_links[k]
-                """
-                self.conncetion.tx_data += '\r*** Reconnected to {}\r'.format(
-                    self.conncetion.call_str
-                )
-                self.conncetion.tx_data += '\r' + self.conncetion.promptvar
-                """
-            # print(self.conncetion.node_links[k])
-            # print(self.conncetion.node_links[k].stat)
+
         self.conncetion.rx_data = []
 
     def port(self):

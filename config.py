@@ -223,9 +223,10 @@ conf_ax_ports = {
 }
 
 class NodeLink(object):
-    def __init__(self, connection):
-        self.link = connection
+    def __init__(self, connection, caller_id):
+        self.link = connection      # Other Connection
         self.stat = 'SABM'
+        self.caller_id = caller_id
 
     def disc(self):
         # del self.link
