@@ -248,11 +248,11 @@ class AXPort(threading.Thread):
 
         conn_id = ax.reverse_addr_str(rx_inp[0])
         own_call = rx_inp[0].split(':')[0]
-        print('# RX HANDLE  > ' + str(conn_id))
-        print('# RX list(self.ax_conn.keys())  > ' + str(list(self.ax_conn.keys())))
+        # print('# RX HANDLE  > ' + str(conn_id))
+        # print('# RX list(self.ax_conn.keys())  > ' + str(list(self.ax_conn.keys())))
 
         if (own_call in list(self.ax_Stations.keys())) or (conn_id in list(self.ax_conn.keys())):
-            print('## RX HANDLE IN > ' + str(conn_id))
+            # print('## RX HANDLE IN > ' + str(conn_id))
             '''
             if rx_inp[1]['via'] and all(not el[2] for el in rx_inp[1]['via']):
                 monitor.debug_out('###### Data In not Digipeated yet !!########')
@@ -262,7 +262,7 @@ class AXPort(threading.Thread):
             # Check if Packet run through all Digis
             if not rx_inp[1]['via'] or all(el[2] for el in rx_inp[1]['via'])\
                     or (own_call not in list(self.ax_Stations.keys())):     # TODO Looking for the right DIGI-Bit
-                print('### RX HAN DIGI > ' + str(conn_id))
+                # print('### RX HAN DIGI > ' + str(conn_id))
 
                 # Incoming DISC
                 if rx_inp[1]['ctl']['hex'] == 0x53:     # DISC p/f True
@@ -581,7 +581,9 @@ class AXPort(threading.Thread):
         print(conn_id)
         # Answering DISC
         if conn_id in self.ax_conn.keys():
-            self.tx_buffer.append([self.UA_frm(rx_inp), self.ax_conn[conn_id].axip_client])       # UA_TX
+            self.tx_buffer.append([dict(self.UA_frm(rx_inp)), tuple(self.ax_conn[conn_id].axip_client)])       # UA_TX
+            for k in list(self.ax_conn[conn_id].node_links.keys()):
+                self.ax_conn[conn_id].node_links[k].link.node_links[conn_id].disc()
             self.ax_conn[conn_id] = None
             del self.ax_conn[conn_id]
         else:

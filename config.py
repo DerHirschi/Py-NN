@@ -26,10 +26,6 @@ class DefaultParam(object):
         self.dest = ['', 0]
         self.via = []
         self.port = None            # Port Obj
-        ###################################
-        # AXIP
-        self.axip_client = ()       # UDP Client data   ('192.168.178.153', 8099)
-        ###################################
         self.conn_id = ''           # Conn ID Str
         self.tx = []                # TX Buffer (T1)
         self.tx_ctl = []            # CTL TX Buffer (T2)
@@ -57,6 +53,14 @@ class DefaultParam(object):
         ###################################
         # Debug !!!
         self.deb_calc_t1 = 0
+        ###################################
+        # AXIP
+        self.axip_client = ()       # UDP Client data   ('192.168.178.153', 8099)
+        ###################################
+        # Link 2 other Station (NODE Link)
+        self.node_links = {
+            # 'conn_id': node_link_Obj
+        }
         ###################################
         # CLI
         self.mh = mh
@@ -218,6 +222,15 @@ conf_ax_ports = {
     },
 }
 
+class NodeLink(object):
+    def __init__(self, connection):
+        self.link = connection
+        self.stat = 'SABM'
+
+    def disc(self):
+        # del self.link
+        self.link = None
+        self.stat = 'DISC'
 
 """
 def conf_stations():

@@ -21,8 +21,8 @@ class CLIDefault(object):
         if self.stat != 'HOLD':
             if not self.stat:
                 # if not self.scr:
+                ###################################################
                 if self.conncetion.rx_data:
-                    # print(str(self.station.rx_data[0][0]))
                     tmp = self.conncetion.rx_data[0][0].decode('UTF-8', errors='ignore')
                     if '\r' in tmp:
                         self.cmd_inp = tmp.split('\r')[:-1]
@@ -30,6 +30,7 @@ class CLIDefault(object):
                         self.cmd_inp = [tmp]
                     self.conncetion.rx_data = self.conncetion.rx_data[1:]
                     # self.station.tx_data += self.station.prompt
+                ###################################################
                 if self.cmd_inp:
                     tmp = self.cmd_inp
                     for el in tmp:
@@ -48,12 +49,16 @@ class CLIDefault(object):
                         else:
                             ######################################
                             # Script mode ( Execute self.scr[0] )
+                            # with input data
                             print('## CLI SCR Mode > ' + str(self.scr))
                             self.scr[0]()
                         self.cmd_inp = self.cmd_inp[1:]
+                #####################################
+                # Jump to Script Mode w/o input data
                 elif self.scr and self.scr_run:
                     self.scr[0]()
-
+            elif self.stat == 'NODE':
+                self.node_relay_data()
             # Wait until all Data are sendet
             elif self.stat == 'DISC' and all(not el for el in [self.conncetion.tx_data,
                                                                self.conncetion.tx,
@@ -225,7 +230,7 @@ class CLIDefault(object):
     def testfnc(self):
         if not self.scr:
             self.conncetion.tx_data += '\r< Test Packet Sender >'
-            self.conncetion.tx_data += '\r< How many Test-Packets should be sent? Enter Digit Number. (Max 500) >'
+            self.conncetion.tx_data += '\r< How many Test-Packets should be sent? Enter Digit Number. (Max 50) >'
             self.tx_cli_msg(' Enter A to abort. ')
             # Init Fnc Count
             self.scr_run = False
@@ -235,14 +240,14 @@ class CLIDefault(object):
             if n.isdigit():
                 self.conncetion.tx_data += '\r< How big should the packages be? Enter Digit Number. (Max 250) >'
                 self.tx_cli_msg(' Enter A to abort. ')
-                n = max(min(int(n), 500), 1)
+                n = max(min(int(n), 50), 1)
                 self.scr.append(n)
             elif n.upper() == 'A':
                 self.tx_cli_msg(' Canceled !! ')
                 self.scr = []
             else:
-                self.conncetion.tx_data += '\r< Please enter Digit Number from 1 to 500 or A for Abort >'
-                self.tx_cli_msg(' How many Test-Packets should be sent? Enter Digit Number. (Max 500) ')
+                self.conncetion.tx_data += '\r< Please enter Digit Number from 1 to 50 or A for Abort >'
+                self.tx_cli_msg(' How many Test-Packets should be sent? Enter Digit Number. (Max 50) ')
                 self.scr = [self.testfnc, 0]
         elif self.scr[1] == 2:
             n2 = self.cmd_inp[0]
@@ -406,9 +411,7 @@ class CLIDefault(object):
 # class CLINode(CLIDefault):
     def connect(self):
         inp = str(self.cmd_inp[0]).upper()
-        # print('######## INP1> ' + str(inp))
         inp = inp.split(' ')[1:]
-        # print('######## INP2> ' + str(inp))
         if not inp:
             self.tx_cli_msg(' Please enter valid Call !! ')
             return
@@ -420,21 +423,14 @@ class CLIDefault(object):
         via = []
         conn_via_list = list(self.conncetion.via)
         conn_via_list.reverse()
-        # via_list = []
-        # MD2SAW:MD3SAW-11:DX0SAW:CB0SAW
-        # MD2SAW:MD2SAW-2:CB0SAW:DNX527:MD3SAW-11:DX0SAW:CB0SAW
-        # via_list.reverse()
         # TODO !!!!!!! Ports
-
 
         for el in conn_via_list:
             via.append(ax.get_call_str(el))
         via.append(self.conncetion.call_str)
         if len(inp) > 1:
             via += inp[1:]
-            # via.reverse()
         conn_id = dest_call + ':' + caller_call
-        # conn_id = caller_call + ':' + dest_call
 
         conn_via_list = []
         tr = True
@@ -449,15 +445,10 @@ class CLIDefault(object):
                 tm.append(False)        # Digi Trigger ( H BIT )
             conn_via_list.append(tm)
 
-        # conn_id = ax.reverse_addr_str(conn_id)
         print(conn_id)
         print(via)
         print(conn_via_list)
 
-        self.conncetion.tx_data += '\r' + '<Dummy for Testing. Not working yet>' + '\r'
-        self.conncetion.tx_data += '\r' + str(conn_id)
-        self.conncetion.tx_data += '\r' + str(via)
-        self.conncetion.tx_data += '\r' + str(conn_via_list)
 
         if conn_id not in self.conncetion.port.ax_conn.keys():
             print('>>>> 1 ' + str(self.conncetion.port.ax_Stations[self.conncetion.call_str]))
@@ -465,18 +456,13 @@ class CLIDefault(object):
             print('**********************************')
             print('>>>> 2 ' + str(self.conncetion.port.ax_conn))
             print('-----------------------------------')
-            # TODO !!!!!!!!!!!!!!!!
-            # TODO !!!!!!!!!!!!!!!!
             self.conncetion.port.ax_conn[conn_id] = self.conncetion.port.ax_Stations[self.conncetion.call_str]()
             print('>>>> 3 ' + str(self.conncetion.port.ax_conn))
             print('**********************************')
             print('**********************************')
-            # TODO !!!!!!!!!!!!!!!!
             print('>>>> 4 ' + str(self.conncetion.port.ax_conn[conn_id]))
-            # TODO !!!!!!!!!!!!!!!!
             self.conncetion.port.ax_conn[conn_id].call = self.conncetion.dest
             dest = ax.get_ssid(dest_call)
-            # TODO !!!!!!!!!!!!!!!!
             self.conncetion.port.ax_conn[conn_id].dest = [dest[0], dest[1]]
             self.conncetion.port.ax_conn[conn_id].via = conn_via_list
             self.conncetion.port.ax_conn[conn_id].conn_id = conn_id
@@ -485,19 +471,88 @@ class CLIDefault(object):
             tx_pack = self.conncetion.port.get_tx_packet_item(conn_id=conn_id)
             tx_pack['typ'] = ['SABM', True]
             tx_pack['cmd'] = True
+            #################
+            # Debugging
             deb = ''.join("%s: %s\r\n" % item for item in vars(self.conncetion.port.ax_conn[conn_id]).items())
             print(deb)
+            #################
 
             self.conncetion.port.ax_conn[conn_id].tx = [tx_pack]
             # set_t1(conn_id)
-            self.conncetion.port.set_t3(conn_id)
-            self.conncetion.tx_data += '\r' + str(self.conncetion.port.ax_conn)
-            self.conncetion.tx_data += '\r' + str("OK ..")
+            self.conncetion.port.ax_conn[conn_id].port.set_t3(conn_id)
+            # self.conncetion.port.set_t3(conn_id)
+            ###############
+            # Add Link
+            link = config.NodeLink(self.conncetion.port.ax_conn[conn_id])
+            own_link = config.NodeLink(self.conncetion)
+            self.conncetion.node_links[conn_id] = link
+            self.conncetion.port.ax_conn[conn_id].node_links[self.conncetion.conn_id] = own_link
+            #####################
+            # Init Script Mode
+            self.stat = 'NODE'
+            link.link.cli.state = 'NODE'
+            ###############
+            # self.conncetion.tx_data += '\r' + str(self.conncetion.port.ax_conn)
+            self.conncetion.tx_data += '\r' + self.conncetion.promptvar
+            self.conncetion.tx_data += "Link setup..."
         else:
             self.conncetion.tx_data += '\r' + str('Busy !! There is still a connection to this Station !!!')
 
-        self.conncetion.tx_data += self.conncetion.promptvar
+        # self.conncetion.tx_data += self.conncetion.promptvar
         # self.station.port.DISC_TX(self.station.conn_id)
+
+    def node_relay_data(self):
+        if not self.conncetion.node_links.keys():
+            self.stat = ''
+            ####################################################
+            # send "*** Reconnected to CALL" flag
+            self.conncetion.tx_data += '\r*** Reconnected to {}\r'.format(
+                self.conncetion.call_str
+            )
+            self.conncetion.tx_data += self.conncetion.promptvar
+            return
+
+        for k in list(self.conncetion.node_links.keys()):
+            link = self.conncetion.node_links[k]
+
+            ################
+            # Status check
+            if link.stat == 'SABM':
+                if link.link.stat == 'RR':
+                    link.stat = 'RR'
+                    self.conncetion.tx_data += '\r*** Connected to {}\r'.format(
+                        link.link.call_str
+                    )
+            ################
+            # Relay Data
+            elif link.stat == 'RR':
+                # RX > TX
+                if link.link.rx_data:
+                    tmp = list(link.link.rx_data)
+                    # self.conncetion.tx_data += link.link.rx_data
+                    for el in tmp:
+                        print('NODE> ' + str(el))
+                        # self.conncetion.tx_data += el[0].decode(errors='ignore')
+                        self.conncetion.tx_bin += el[0]
+                        link.link.rx_data.remove(el)
+                # TX > RX
+                if self.conncetion.rx_data:
+                    for el in list(self.conncetion.rx_data):
+                        link.link.tx_bin += el[0]
+                    print()
+            elif link.stat == 'DISC':
+                # link.link.cli.state = ''
+                # self.stat = ''
+                del self.conncetion.node_links[k]
+                """
+                self.conncetion.tx_data += '\r*** Reconnected to {}\r'.format(
+                    self.conncetion.call_str
+                )
+                self.conncetion.tx_data += '\r' + self.conncetion.promptvar
+                """
+            # print(self.conncetion.node_links[k])
+            # print(self.conncetion.node_links[k].stat)
+        self.conncetion.rx_data = []
 
     def port(self):
         out = "\r-#-Name/Call----Speed/M-Max-TXD-PAC-PERS-SLOT-IRTT---T2----T3--RET-CLI----------\r"
