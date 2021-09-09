@@ -1,35 +1,21 @@
 from ax25enc import get_call_str
 import time
+import os
+import pickle
 
-
-class AXIPClients(object):
-    def __init__(self, port):
-        self.port = port
-        self.clients = {
-            # 'call_str': {
-            #       'addr': (),
-            #       'lastsee': 0.0,
-            # }
-        }
-
-    def cli_cmd_out(self):
-        out = ''
-        out += '\r                       < AXIP - Routes >\r\r'
-        out += '-Call-----IP:Port---------------Timeout------------------\r'
-        for ke in self.clients.keys():
-            out += '{:9} {:21} {:8}\r'.format(
-                ke,
-                self.clients[ke]['addr'][0] + ':' + str(self.clients[ke]['addr'][1]),
-                round(time.time() - self.clients[ke]['lastsee'])
-            )
-        out += '\r'
-        return out
+mh_data_file = 'data/mh_data.pkl'
 
 
 class MH(object):
     def __init__(self):
         self.raw = {}
         self.calls = {}
+        try:
+            with open(mh_data_file, 'rb') as inp:
+                self.calls = pickle.load(inp)
+                print(self.calls)
+        except (EOFError, FileNotFoundError):
+            pass
         """
         self.connections = {
             # conn_id: bla TODO Reverse id 
@@ -38,7 +24,7 @@ class MH(object):
 
     def mh_inp(self, rx_in, port_id):
         """
-        #########################
+        rx_in = return address_str.replace('*', ''), ret, len(data_in)
         # Connections
         if rx_in[0] not in self.connections:
             self.connections[rx_in[0]] = [rx_in[1]]
@@ -64,6 +50,7 @@ class MH(object):
                 'byte_n': rx_in[2],  # N Bytes
                 'h_byte_n': 0,  # N Header Bytes
                 'rej_n': 0,  # N Header Bytes
+                # 'axip_add': axip_add,  # N Header Bytes
             }
             if rx_in[1]['data'][1]:
                 self.calls[call_str]['h_byte_n'] = rx_in[1]['data'][1]
@@ -109,3 +96,15 @@ class MH(object):
         out += '\r'
 
         return out
+
+    def save_mh_data(self):
+        try:
+            with open(mh_data_file, 'wb') as outp:
+                pickle.dump(self.calls, outp, pickle.HIGHEST_PROTOCOL)
+        except FileNotFoundError:
+            os.system('touch {}'.format(mh_data_file))
+            with open(mh_data_file, 'wb') as outp:
+                pickle.dump(self.calls, outp, pickle.HIGHEST_PROTOCOL)
+
+
+

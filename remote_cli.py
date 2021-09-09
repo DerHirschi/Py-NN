@@ -112,7 +112,7 @@ class CLIDefault(object):
               "* |_|    \__, |         |_| \_|_| \_| *\r" \
               "*        |___/                        *\r" \
               "***************************************\r" \
-              "*         < Python - Net Node >       *\r" \
+              "*        < Python - Net Node >        *\r" \
               "* Under development by MD2SAW (Manuel)*\r" \
               "* Will be published on GitHub..       *\r" \
               "***************************************\r"
@@ -560,7 +560,7 @@ class CLIDefault(object):
                                                                                                               'name'])
             for stat in config.ax_ports[ke].ax_Stations.keys():
                 # print(str(config.ax_ports[ke].ax_Stations))
-                print(''.join("%s: %s\r" % item for item in vars(config.ax_ports[ke].ax_Stations[stat]).items()))
+                # print(''.join("%s: %s\r" % item for item in vars(config.ax_ports[ke].ax_Stations[stat]).items()))
                 # out +='{:2} {:12} {:11}   {}  {:3} {:3}         {:4}\r'.format(
                 out += '{:2} {:12} {:7}   {} {:3} {:3}           {:4}  {:3}  {:4}   {:2} {}\r'.format(
                     config.ax_ports[ke].ax_Stations[stat].port_conf_id,
@@ -579,7 +579,8 @@ class CLIDefault(object):
         self.conncetion.tx_data += self.conncetion.promptvar
 
     def ax_clients(self):
-        out = 'Call-------IP----------------------Mode----Port---Timeout--IP/Hostname----\r'
+        out = '\r                  < AXIP - Connected Clients >\r\r'
+        out += 'Call-------Client IP:Port----------Mode----AXPort-Timeout--Server IP:Port-\r'
         for ke in config.ax_ports.keys():
             if config.ax_ports[ke].port_typ == 'AXIP':
                 for conn_id in config.ax_ports[ke].ax_conn.keys():
@@ -587,15 +588,19 @@ class CLIDefault(object):
                     if bcast_mode:
                         bcast_mode = 'BRCAST'
                     else:
-                        bcast_mode = ''
-                    out += '{}  {:15}:{}    {:6} {:5}   {}         {:15}\r'.format(
+                        bcast_mode = 'PEER'
+                    out += '{}  {:15}:{}    {:6} {:2}      {:4}     {:15}:{}\r'.format(
                         config.ax_ports[ke].ax_conn[conn_id].call_str,
-                        config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['parm1'],
-                        config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['parm2'],
-                        bcast_mode,
+                        config.ax_ports[ke].ax_conn[conn_id].axip_client[0],
                         config.ax_ports[ke].ax_conn[conn_id].axip_client[1],
-                        '',
-                        config.ax_ports[ke].ax_conn[conn_id].axip_client[0]
+                        # config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['parm1'],
+                        # config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['parm2'],
+                        bcast_mode,
+                        # config.ax_ports[ke].ax_conn[conn_id].axip_client[1],
+                        ke,
+                        'n/a',
+                        config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['parm1'],
+                        config.conf_ax_ports[config.ax_ports[ke].ax_conn[conn_id].port_conf_id]['parm2']
                     )
         self.conncetion.tx_data += '\r' + out
         self.conncetion.tx_data += self.conncetion.promptvar
@@ -651,10 +656,10 @@ def init_cli(conn_obj):
     # Node
     if 1 in conn_obj.cli_type:
         tmp_cmd_dict.update({
-            'C': (CLIDefault.connect, '(C)onnect to other Station ( Not implemented yet )'),
+            'C': (CLIDefault.connect, '(C)onnect to other Station ( !Under Construction! Just for this Port.)'),
             'P': (CLIDefault.port, 'Show (P)orts'),
             'AX': (CLIDefault.ax_clients, 'Show (AX)IP Clients'),
-            'AR': (CLIDefault.ax_routes, 'Show (A)XIP (R)outes'),
+            'AC': (CLIDefault.ax_routes, 'Show (A)XIP (C)lients'),
         })
     # File transfer
     if 3 in conn_obj.cli_type:

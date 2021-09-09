@@ -1,9 +1,9 @@
 import os
-import time
 import serial
 import socket
 import threading
 import monitor
+from Clients_cfg import AXIPClients
 from config import *
 
 # TESTING and DEBUGGING
@@ -142,6 +142,7 @@ class AXPort(threading.Thread):
                                 if call_st not in self.axip_clients.clients.keys():
                                     self.axip_clients.clients[call_st] = {}
                                 self.axip_clients.clients[call_st]['addr'] = address
+                                self.axip_clients.clients[call_st]['port'] = self.port_id
                                 self.axip_clients.clients[call_st]['lastsee'] = time.time()
                                 if self.axip_bcast:
                                     # for ke in self.ax_conn.keys():
@@ -186,6 +187,7 @@ class AXPort(threading.Thread):
                         self.tx_buffer = self.tx_buffer[1:]
                         n += 1
             axip.close()
+        mh.save_mh_data()
 
     def get_tx_packet_item(self, rx_inp=None, conn_id=None):
         if rx_inp:
