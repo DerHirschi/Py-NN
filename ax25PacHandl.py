@@ -107,6 +107,7 @@ class AXPort(threading.Thread):
             axip = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
             axip.bind((self.axip_ip, self.axip_port))
             axip.settimeout(0.5)
+
             while not p_end:
                 try:
                     bytesAddressPair = axip.recvfrom(332)
@@ -155,7 +156,7 @@ class AXPort(threading.Thread):
                                         addr = self.axip_clients.clients[ke]['addr']
                                         if addr not in tmp_addr:
                                             axip.sendto(b, addr)
-                                            time.sleep(0.02)
+                                            # time.sleep(0.1)
                                             # print('Send 1> ' + str(addr))
                                             tmp_addr.append(addr)
 
@@ -185,11 +186,12 @@ class AXPort(threading.Thread):
                         if self.axip_bcast:
                             # axip.sendall(enc + calc_crc)
                             tmp_addr = []
-                            for ke in self.ax_conn.keys():
-                                addr = self.ax_conn[ke].axip_client
+                            for ke in self.axip_clients.clients.keys():
+                            # for ke in self.ax_conn.keys():
+                                addr = self.axip_clients.clients[ke]['addr']
                                 if addr not in tmp_addr:
                                     axip.sendto(enc + calc_crc, addr)
-                                    time.sleep(0.05)
+                                    # time.sleep(0.1)
                                     tmp_addr.append(addr)
 
                         else:
@@ -620,14 +622,12 @@ class AXPort(threading.Thread):
                     print('CLI DISC> ' + str(conn_id))
                 """
                 self.ax_conn[conn_id].node_links[k].disc()
-            # self.ax_conn[conn_id] = None
-            # TODO Del Connection on AXIP
-            if self.port_typ != 'AXIP':
-                del self.ax_conn[conn_id]  # TODO AXIP
+            # TODO deketed connection cause problems after disco in non BCAST Mode
+            # if self.port_typ != 'AXIP':
+            del self.ax_conn[conn_id]  # TODO AXIP non BCAST MODE
         else:
             axip_client = db.get_entry(ax.get_call_str(rx_inp['FROM'][0], rx_inp['FROM'][1])).last_axip_addr
             self.tx_buffer.append([self.DM_frm(rx_inp), axip_client])
-        print(axip_client)
     #######################################################################
 
     def UA_frm(self, rx_inp):
