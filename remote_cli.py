@@ -42,7 +42,7 @@ class CLIDefault(object):
                                     print('## CLI CMD IN > ' + el)
                                 else:
                                     print('## CLI CMD IN no SUFIX> ' + el)
-                                    self.tx_cli_msg('Command not found !')
+                                    # self.tx_cli_msg('Command not found !')
                             else:
                                 self.exec_cmd(el)
                                 print('## CLI CMD IN > ' + el)

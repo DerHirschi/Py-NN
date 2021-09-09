@@ -1,4 +1,6 @@
 import os
+import time
+
 import serial
 import socket
 import threading
@@ -147,9 +149,16 @@ class AXPort(threading.Thread):
                                 self.axip_clients.clients[call_st]['lastsee'] = time.time()
                                 if self.axip_bcast:
                                     # for ke in self.ax_conn.keys():
+                                    # axip.sendall(b)
+                                    tmp_addr = [address]
                                     for ke in self.axip_clients.clients.keys():
                                         addr = self.axip_clients.clients[ke]['addr']
-                                        axip.sendto(b, addr)
+                                        if addr not in tmp_addr:
+                                            axip.sendto(b, addr)
+                                            time.sleep(0.02)
+                                            # print('Send 1> ' + str(addr))
+                                            tmp_addr.append(addr)
+
                             else:
                                 monitor.debug_out("ERROR Dec> " + str(decode_inp), True)
                             # pack = b''
@@ -174,9 +183,15 @@ class AXPort(threading.Thread):
                         calc_crc = bytes.fromhex(hex(calc_crc)[2:].zfill(4))[::-1]
                         ###################################
                         if self.axip_bcast:
+                            # axip.sendall(enc + calc_crc)
+                            tmp_addr = []
                             for ke in self.ax_conn.keys():
                                 addr = self.ax_conn[ke].axip_client
-                                axip.sendto(enc + calc_crc, addr)
+                                if addr not in tmp_addr:
+                                    axip.sendto(enc + calc_crc, addr)
+                                    time.sleep(0.05)
+                                    tmp_addr.append(addr)
+
                         else:
                             # print("Send AXIP TTO > " + str(address))
                             ###########################
