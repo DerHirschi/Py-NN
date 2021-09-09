@@ -1,6 +1,7 @@
 import remote_cli
 from remote_cli import init_cli
 from ax25Statistics import *
+from Clients_cfg import *
 
 ser_port = "/tmp/ptyAX5"
 ser_baud = 9600
@@ -14,7 +15,12 @@ digi_calls = {
 }
 #################################
 # Init MH
+print('# Init MH')
 mh = MH()
+##################
+# Init Client DB
+print('# Init Client DB')
+db = ClientDB()
 
 
 #######################################
@@ -63,6 +69,9 @@ class DefaultParam(object):
         ###################################
         # MH Obj
         self.mh = mh
+        ######################
+        # Client DB entry
+        # self.db_entry = db.get_entry(self.call_str)
         ###################################
         # CLI Obj
         self.cli = None

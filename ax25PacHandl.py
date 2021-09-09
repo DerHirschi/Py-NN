@@ -3,7 +3,6 @@ import serial
 import socket
 import threading
 import monitor
-from Clients_cfg import AXIPClients
 from config import *
 import ax25enc as ax
 
@@ -179,6 +178,13 @@ class AXPort(threading.Thread):
                                 addr = self.ax_conn[ke].axip_client
                                 axip.sendto(enc + calc_crc, addr)
                         else:
+                            # print("Send AXIP TTO > " + str(address))
+                            ###########################
+                            # DEBUG !!!!!!!!!!!!!!!!!!!
+                            # UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+                            # UDPClientSocket.sendto(enc + calc_crc, address)
+                            ###########################
+
                             axip.sendto(enc + calc_crc, address)
                         mon = ax.decode_ax25_frame(enc)
                         # self.handle_rx(mon)  # Echo TX in Monitor
@@ -188,7 +194,10 @@ class AXPort(threading.Thread):
                         monitor.debug_out("Out> " + str(mon))
                         self.tx_buffer = self.tx_buffer[1:]
                         n += 1
+
             axip.close()
+        ########################
+        # Save Data to File
         mh.save_mh_data()
         #####################################################
         # TODO Could cause Problems with multiple AXIP Ports
@@ -256,8 +265,6 @@ class AXPort(threading.Thread):
 
         conn_id = ax.reverse_addr_str(rx_inp[0])
         own_call = rx_inp[0].split(':')[0]
-        # print('# RX HANDLE  > ' + str(conn_id))
-        # print('# RX list(self.ax_conn.keys())  > ' + str(list(self.ax_conn.keys())))
 
         if (own_call in list(self.ax_Stations.keys())) or (conn_id in list(self.ax_conn.keys())):
             # print('## RX HANDLE IN > ' + str(conn_id))
@@ -405,7 +412,7 @@ class AXPort(threading.Thread):
         print(conn_id)
         # Setup NEW conn Data
         if conn_id not in self.ax_conn:
-            self.setup_new_conn(conn_id, rx_inp, owncall)
+            self.setup_new_conn(conn_id, rx_inp, owncall, axip_addr=axip_cl)
         #############################################################################
         # Verb. wird zurueck gesetzt nach empfangen eines SABM.
         # evtl. bestehenden TX-Buffer speichern um mit der Uebertragung fortzufahren.
@@ -599,10 +606,13 @@ class AXPort(threading.Thread):
                 """
                 self.ax_conn[conn_id].node_links[k].disc()
             # self.ax_conn[conn_id] = None
-            del self.ax_conn[conn_id]
+            # TODO Del Connection on AXIP
+            if self.port_typ != 'AXIP':
+                del self.ax_conn[conn_id]  # TODO AXIP
         else:
+            axip_client = db.get_entry(ax.get_call_str(rx_inp['FROM'][0], rx_inp['FROM'][1])).last_axip_addr
             self.tx_buffer.append([self.DM_frm(rx_inp), axip_client])
-
+        print(axip_client)
     #######################################################################
 
     def UA_frm(self, rx_inp):
@@ -667,10 +677,11 @@ class AXPort(threading.Thread):
 
     #############################################################################
     
-    def setup_new_conn(self, conn_id, rx_inp, mycall):
+    def setup_new_conn(self, conn_id, rx_inp, mycall, axip_addr=()):
         tmp = self.ax_Stations[mycall]()
         from_call, to_call = rx_inp['FROM'], rx_inp['TO']
         tmp.dest = [from_call[0], from_call[1]]
+        tmp.db_entry = db.get_entry(ax.get_call_str(tmp.dest))
         via = []
         for el in rx_inp['via']:
             via.append([el[0], el[1], False])
@@ -687,10 +698,15 @@ class AXPort(threading.Thread):
         tmp.snd_rej = [False, False]
         tmp.ack = [False, False, False]
         tmp.port = self
-        # tmp.port_typ = self.port_typ
+
+        if axip_addr:
+            tmp.db_entry.last_axip_addr = axip_addr
+        tmp.db_entry.axip_addr = axip_addr
+
         tmp.conn_id = conn_id
         self.ax_conn[conn_id] = tmp
         self.set_t3(conn_id)
+        print('\r\n'.join("%s: %s" % item for item in vars(self.ax_conn[conn_id].db_entry).items()))
 
     def disc_all_stations(self):
         tmp = self.ax_conn.keys()
@@ -876,6 +892,7 @@ else:
     #####################################################################################
     # Init Ports and Stations ( Calls )
     #####################################################################################
+    print('# Init Ports')
     n = 0
     for k in conf_ax_ports.keys():
         # Ports
