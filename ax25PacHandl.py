@@ -38,6 +38,7 @@ class AXPort(threading.Thread):
             self.axip_ip = conf_ax_ports[port_conf_id]['parm1']
             self.axip_port = conf_ax_ports[port_conf_id]['parm2']
             self.axip_bcast = conf_ax_ports[port_conf_id]['bcast']
+            self.bcast_calls = []
             #################################
             # Init AXIP Client List
             self.axip_clients = AXIPClients(self)
@@ -115,8 +116,6 @@ class AXPort(threading.Thread):
                     address = bytesAddressPair[1]
                     # clientMsg = "Message from Client:{}".format(b)
                     # clientIP = "Client IP Address:{}".format(address)
-                    # print(clientMsg)
-                    # print(clientIP)
 
                     if b:  # RX ###################################################################################
                         ###################################
@@ -127,9 +126,6 @@ class AXPort(threading.Thread):
                         calc_crc = ax.crc_x25(msg)
                         ###################################
                         if calc_crc == crc:
-                            # self.set_t0()
-                            # set_t2()
-                            # if ax.conv_hex(b[0]) == 'c0' and len(pack) > 2:
                             monitor.debug_out("----------------AXIP Data IN ----------------------")
                             decode_inp = ax.decode_ax25_frame(msg)
                             if decode_inp:
@@ -143,8 +139,45 @@ class AXPort(threading.Thread):
                                 self.timer_T0 = 0
                                 monitor.debug_out('################ DEC END ##############################')
                                 call_st = decode_inp[0].split(':')[1]
+                                ###########################
+                                # New Client
                                 if call_st not in self.axip_clients.clients.keys():
                                     self.axip_clients.clients[call_st] = {}
+                                if call_st not in db.db.keys():
+                                    ######################################
+                                    # ADD New User in DB
+                                    db.get_entry(call_st)
+                                    ###########################################
+                                    # New Client Beacon
+                                    if self.bcast_calls:
+                                        via = []
+                                        for el in list(decode_inp[1]['via']):
+                                            via.append([el[0], el[1], False])
+                                        via.reverse()
+                                        txt = '>> Hello {} ! <<\r'\
+                                                '> You have to register your Station first for Broadcast Mode <\r'\
+                                                '> Please connect to {} to register your Station <\r'.format(
+                                                ax.get_call_str(decode_inp[1]['FROM'][0], decode_inp[1]['FROM'][1]),
+                                                self.bcast_calls[0])
+                                        self.cron_add(txt, 30, self.bcast_calls[0],
+                                                      ax.get_call_str(decode_inp[1]['FROM'][0], decode_inp[1]['FROM'][1]),
+                                                      address, via, 5)
+                                else:
+                                    if db.db[call_st].is_new:
+                                        if self.bcast_calls:
+                                            via = []
+                                            for el in list(decode_inp[1]['via']):
+                                                via.append([el[0], el[1], False])
+                                            via.reverse()
+                                            txt = '>> Hello {} ! <<\r' \
+                                                  '> You have to register your Station first for Broadcast Mode <\r' \
+                                                  '> Please connect to {} to register your Station <\r'.format(
+                                                ax.get_call_str(decode_inp[1]['FROM'][0], decode_inp[1]['FROM'][1]),
+                                                self.bcast_calls[0])
+                                            self.cron_add(txt, 30, self.bcast_calls[0],
+                                                          ax.get_call_str(decode_inp[1]['FROM'][0],
+                                                                          decode_inp[1]['FROM'][1]),
+                                                          address, via, 5)
                                 self.axip_clients.clients[call_st]['addr'] = address
                                 self.axip_clients.clients[call_st]['port'] = self.port_id
                                 self.axip_clients.clients[call_st]['lastsee'] = time.time()
@@ -154,7 +187,8 @@ class AXPort(threading.Thread):
                                     tmp_addr = [address]
                                     for ke in self.axip_clients.clients.keys():
                                         addr = self.axip_clients.clients[ke]['addr']
-                                        if addr not in tmp_addr:
+                                        if addr not in tmp_addr and not db.db[ke].is_new:
+                                            print('## SEND RCV BCAST')
                                             axip.sendto(b, addr)
                                             # time.sleep(0.1)
                                             # print('Send 1> ' + str(addr))
@@ -183,11 +217,14 @@ class AXPort(threading.Thread):
                         calc_crc = ax.crc_x25(enc)
                         calc_crc = bytes.fromhex(hex(calc_crc)[2:].zfill(4))[::-1]
                         ###################################
-                        if self.axip_bcast:
+                        dest_call = ax.get_call_str(self.tx_buffer[0][0]['dest'][0], self.tx_buffer[0][0]['dest'][1])
+                        print('### DEST CALL > ' + str(dest_call))
+                        if self.axip_bcast and not db.db[dest_call].is_new:
+                            print('### SEND BCAST')
                             # axip.sendall(enc + calc_crc)
                             tmp_addr = []
                             for ke in self.axip_clients.clients.keys():
-                            # for ke in self.ax_conn.keys():
+                                # is_new = db.db[ke].is_new
                                 addr = self.axip_clients.clients[ke]['addr']
                                 if addr not in tmp_addr:
                                     axip.sendto(enc + calc_crc, addr)
@@ -201,8 +238,8 @@ class AXPort(threading.Thread):
                             # UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
                             # UDPClientSocket.sendto(enc + calc_crc, address)
                             ###########################
-
-                            axip.sendto(enc + calc_crc, address)
+                            if address:
+                                axip.sendto(enc + calc_crc, address)
                         mon = ax.decode_ax25_frame(enc)
                         # self.handle_rx(mon)  # Echo TX in Monitor
                         ############################
@@ -630,6 +667,20 @@ class AXPort(threading.Thread):
             self.tx_buffer.append([self.DM_frm(rx_inp), axip_client])
     #######################################################################
 
+    def UI_frm(self, frm, to, out, via=None, axip_cl=()):
+        # UI Frame ( Beacon )
+        if via is None:
+            via = []
+        self.tx_buffer.append([{
+            'call': frm,
+            'dest': to,
+            'via': via,
+            'out': out,
+            'typ': ['UI', True],
+            'cmd': False,
+            'pid': 6,
+        }, axip_cl])
+
     def UA_frm(self, rx_inp):
         # Answering Conn Req. or Disc Frame
         pac = self.get_tx_packet_item(rx_inp=rx_inp)
@@ -691,7 +742,8 @@ class AXPort(threading.Thread):
         return pac
 
     #############################################################################
-    
+    #############################################################################
+
     def setup_new_conn(self, conn_id, rx_inp, mycall, axip_addr=()):
         tmp = self.ax_Stations[mycall]()
         from_call, to_call = rx_inp['FROM'], rx_inp['TO']
@@ -717,6 +769,15 @@ class AXPort(threading.Thread):
         if axip_addr:
             tmp.db_entry.last_axip_addr = axip_addr
         tmp.db_entry.axip_addr = axip_addr
+        ####################################
+        # TODO Broadcast New User
+        # print(tmp.db_entry)
+        # print(tmp.db_entry.is_new)
+        if tmp.db_entry.is_new:
+            print('NEW USER CONNECTED !!!')
+            ####################################
+            # TODO Broadcast New User
+            tmp.db_entry.is_new = False
 
         tmp.conn_id = conn_id
         self.ax_conn[conn_id] = tmp
@@ -761,8 +822,63 @@ class AXPort(threading.Thread):
             # Send Ack if not sendet with I Frame
             elif self.ax_conn[id_in].ack[0]:
                 self.tx_buffer.append([self.RR_frm(id_in), self.ax_conn[id_in].axip_client])
-    #############################################################################
 
+    #############################################################################
+    # CRON
+    #############################################################################
+    def cron_add(self, text, period, from_call_str, to_call_str='ALL', axip_cl=(), via=None, n_times=-1):
+        """
+        cron_pacs = {
+           'callstr': [[pac, from, period, next_send, axip]]
+        }
+        """
+        if via is None:
+            via = []
+        print('Cron Set')
+        if to_call_str in cron_pacs.keys():
+            for el in cron_pacs[to_call_str]:
+                if text == el[0] and from_call_str == el[1] and axip_cl == el[4] and via == el[5]:
+                    return
+            cron_pacs[to_call_str].append([text, from_call_str, period, time.time(), axip_cl, via, n_times])
+        else:
+            cron_pacs[to_call_str] = [[text, from_call_str, period, time.time(), axip_cl, via, n_times]]
+        # for kee in cron_pacs.keys():
+        #    print(cron_pacs[kee])
+
+    def cron_del(self, to_call_str):
+        del cron_pacs[to_call_str]
+
+    def cron_main(self):
+        for k in list(cron_pacs.keys()):
+            del_ind = []
+            for el in cron_pacs[k]:
+                # print(el)
+                if el[3] < time.time():
+                    print('Crone Triggert ')
+                    el[3] = time.time() + el[2]
+                    if k == 'ALL':
+                        for ke in self.axip_clients.clients.keys():
+                            addr = self.axip_clients.clients[ke]['addr']
+                            self.UI_frm(ax.get_ssid(el[1]),
+                                        ax.get_ssid(k), el[0], el[5], addr)
+                    else:
+                        self.UI_frm(ax.get_ssid(el[1]),
+                                    ax.get_ssid(k), el[0], el[5], el[4])
+                    if el[6] != -1:
+                        print('Counter ' + str(el[6]))
+                        if el[6] == 1:
+                            del_ind.append(el)
+                        else:
+                            el[6] -= 1
+                for ind in del_ind:
+                    print('Remove' + str(ind))
+                    cron_pacs[k].remove(ind)
+
+
+
+    #############################################################################
+    # TX
+    #############################################################################
     def handle_tx(self):
         max_i_frame_c_f_all_conns = 0
         disc_keys = []
@@ -771,6 +887,9 @@ class AXPort(threading.Thread):
         #############################################
         # Check T0
         if time.time() > self.timer_T0 or self.timer_T0 == 0:
+            #############################################
+            # Crone ( Beacons )
+            self.cron_main()
             for conn_id in list(self.ax_conn.keys()):
                 # max_f = 0
                 #############################
@@ -922,6 +1041,9 @@ else:
                 if stat.digi:
                     # digi_calls.append([[stat.call, stat.ssid], ax_ports[k]])
                     digi_calls[call_str] = ax_ports[n]
+                if stat.bcast_srv:
+                    ax_ports[n].bcast_calls.append(call_str)
+                    # bcast_calls[call_str] = ax_ports[n]
 
             else:
                 #########################################
@@ -933,6 +1055,9 @@ else:
                     ax_ports[n].ax_Stations[call_str] = stat
                     if stat.digi:
                         digi_calls[call_str] = ax_ports[n]
+                    if stat.bcast_srv:
+                        ax_ports[n].bcast_calls.append(call_str)
+                        # bcast_calls[call_str] = ax_ports[n]
         ax_ports[n].start()
         n += 1
     #####################################################################################

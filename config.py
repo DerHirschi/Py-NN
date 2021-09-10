@@ -13,6 +13,12 @@ ax_ports = {
 digi_calls = {
     # 'callstr': AxPort
 }
+bcast_calls = {
+    # 'callstr': AxPort
+}
+cron_pacs = {
+    #  'callstr': [[pac, to, next_send, axip]]
+}
 #################################
 # Init MH
 print('# Init MH')
@@ -101,6 +107,7 @@ class DefaultParam(object):
     cli_type = []                       # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS)
     cli_msg_tag = '<{}>'
     cli_sufix = '//'
+    bcast_srv = False
     ###################################################################################################################
     # AX25 Parameters                   ###############################################################################
     ax25PacLen = 115                    # Max Pac len
@@ -174,6 +181,7 @@ class MD3SAW12(DefaultParam):
     digi = True                                                     # Digipeating
     cli_type = [1]                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
     cli_sufix = ''
+    bcast_srv = True
     ax25PacLen = 250    # Max Pac len
     ax25MaxFrame = 7    # Max (I) Frames
     ax25TXD = 500        # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation

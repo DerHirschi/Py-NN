@@ -1,20 +1,25 @@
 import time
 import os
 import pickle
+import ax25enc as ax
 
 axip_clientList = 'data/axip_clientList.pkl'
-client_db = 'data/axip_clientDB.pkl'
+client_db = 'data/clientDB.pkl'
 
 
 class Client(object):
     def __init__(self, call):
         self.call_str = call
+        self.call = ax.get_ssid(call)[0]
+        self.ssid = ax.get_ssid(call)[1]
         self.name = ''
         self.qth = ''
         self.loc = ''
         self.axip_addr = ()
         self.last_axip_addr = ()
-
+        self.is_new = True
+        self.copy_fm = ''
+        self.last_seen = time.time()
         ########
         # self.filter
         # self.mode
@@ -30,6 +35,12 @@ class ClientDB:
                 self.db = pickle.load(inp)
         except FileNotFoundError:
             os.system('touch {}'.format(client_db))
+            default_client = Client('ALL')
+            default_client.is_new = False
+            default_client.name = 'Beacon'
+            self.db = {
+                'ALL': default_client
+            }
         except EOFError:
             pass
 
