@@ -33,6 +33,8 @@ class ClientDB:
         try:
             with open(client_db, 'rb') as inp:
                 self.db = pickle.load(inp)
+            for ke in self.db.keys():
+                print(ke)
         except FileNotFoundError:
             os.system('touch {}'.format(client_db))
             default_client = Client('ALL')
@@ -52,7 +54,7 @@ class ClientDB:
 
     def save_data(self):
         try:
-            with open(axip_clientList, 'wb') as outp:
+            with open(client_db, 'wb') as outp:
                 pickle.dump(self.db, outp, pickle.HIGHEST_PROTOCOL)
         except FileNotFoundError as e:
             print("ERROR SAVE ClientDB: " + str(e))

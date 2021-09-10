@@ -253,6 +253,9 @@ class AXPort(threading.Thread):
         ########################
         # Save Data to File
         mh.save_mh_data()
+        ########################
+        # Save Client DB
+        db.save_data()
         #####################################################
         # TODO Could cause Problems with multiple AXIP Ports
         if self.axip_clients:
@@ -775,6 +778,12 @@ class AXPort(threading.Thread):
         # print(tmp.db_entry.is_new)
         if tmp.db_entry.is_new:
             print('NEW USER CONNECTED !!!')
+            # Del New User Beacon
+            self.cron_del(tmp.db_entry.call_str)
+            # Setup New User CLI TODO
+            # tmp.cli.scr = [tmp.cli.testfnc, 1, 20]    # DUMMY
+            # ADD User zu User C TEXT ( New User CTEXT )
+            tmp.station_ctexte_var[tmp.dest[0]] = 'HELLO NEW USER ..BLA BLA'
             ####################################
             # TODO Broadcast New User
             tmp.db_entry.is_new = False
@@ -842,19 +851,17 @@ class AXPort(threading.Thread):
             cron_pacs[to_call_str].append([text, from_call_str, period, time.time(), axip_cl, via, n_times])
         else:
             cron_pacs[to_call_str] = [[text, from_call_str, period, time.time(), axip_cl, via, n_times]]
-        # for kee in cron_pacs.keys():
-        #    print(cron_pacs[kee])
 
     def cron_del(self, to_call_str):
-        del cron_pacs[to_call_str]
+        if to_call_str in cron_pacs.keys():
+            del cron_pacs[to_call_str]
 
     def cron_main(self):
         for k in list(cron_pacs.keys()):
             del_ind = []
             for el in cron_pacs[k]:
-                # print(el)
                 if el[3] < time.time():
-                    print('Crone Triggert ')
+                    print('Crone Triggert: ' + el[0])
                     el[3] = time.time() + el[2]
                     if k == 'ALL':
                         for ke in self.axip_clients.clients.keys():
@@ -865,16 +872,12 @@ class AXPort(threading.Thread):
                         self.UI_frm(ax.get_ssid(el[1]),
                                     ax.get_ssid(k), el[0], el[5], el[4])
                     if el[6] != -1:
-                        print('Counter ' + str(el[6]))
                         if el[6] == 1:
                             del_ind.append(el)
                         else:
                             el[6] -= 1
                 for ind in del_ind:
-                    print('Remove' + str(ind))
                     cron_pacs[k].remove(ind)
-
-
 
     #############################################################################
     # TX
@@ -1067,10 +1070,12 @@ else:
     # ax_ports[k].ax_Stations
     # kiss = AXPort(("/tmp/ptyAX5", 9600))
     kiss = ax_ports[0]
+
     try:
         # kiss.start()
 
         while not p_end:
+
             print("_______________________________________________")
             print('Selected Connection > ' + sel_station)
             print("_______________________________________________")
