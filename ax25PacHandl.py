@@ -779,14 +779,15 @@ class AXPort(threading.Thread):
         if tmp.db_entry.is_new:
             print('NEW USER CONNECTED !!!')
             # Del New User Beacon
+            # TODO Beacon ll still added again till user has registration complete
             self.cron_del(tmp.db_entry.call_str)
             # Setup New User CLI TODO
-            # tmp.cli.scr = [tmp.cli.testfnc, 1, 20]    # DUMMY
+            tmp.cli.scr = [tmp.cli.new_user, 0, tmp.db_entry]    # DUMMY
+            tmp.cli.scr_run = True    # DUMMY
             # ADD User zu User C TEXT ( New User CTEXT )
             tmp.station_ctexte_var[tmp.dest[0]] = 'HELLO NEW USER ..BLA BLA'
             ####################################
-            # TODO Broadcast New User
-            tmp.db_entry.is_new = False
+            # tmp.db_entry.is_new = False
 
         tmp.conn_id = conn_id
         self.ax_conn[conn_id] = tmp

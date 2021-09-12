@@ -625,8 +625,25 @@ class CLIDefault(object):
     """
 
     # class CLIAXIP(CLIDefault):
-    def dummy(self):
-        pass
+    def new_user(self):
+        if self.scr[1] == 0:
+            out = '\rHello {}..\r' \
+                  'Please enter your name: '.format(self.scr[2].call_str)
+            self.conncetion.tx_data += out
+            self.scr = [self.new_user, 1, self.scr[2]]
+            self.scr_run = False
+        elif self.scr[1] == 1:
+            inp = self.cmd_inp[0]
+            out = '{} saved ...\r' \
+                  'Please enter your QTH : '.format(inp)
+            self.scr[2].name = inp
+            self.conncetion.tx_data += out
+            self.scr[2].is_new = False
+            self.scr = [self.new_user, 2, self.scr[2]]
+        elif self.scr[1] == 2:
+
+            self.scr = []
+            self.conncetion.tx_data += self.conncetion.promptvar
 
     """
 
@@ -671,7 +688,7 @@ def init_cli(conn_obj):
     # AXIP
     if 4 in conn_obj.cli_type:
         tmp_cmd_dict.update({
-            'X': (CLIDefault.dummy, 'Dummy'),
+            # 'X': (CLIDefault.new_user, 'Dummy'),
         })
     # Test
     if 9 in conn_obj.cli_type:
