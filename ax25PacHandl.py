@@ -38,7 +38,7 @@ class AXPort(threading.Thread):
             self.axip_ip = conf_ax_ports[port_conf_id]['parm1']
             self.axip_port = conf_ax_ports[port_conf_id]['parm2']
             self.axip_bcast = conf_ax_ports[port_conf_id]['bcast']
-            self.bcast_calls = []
+            self.bcast_stations = []
             #################################
             # Init AXIP Client List
             self.axip_clients = AXIPClients(self)
@@ -146,10 +146,10 @@ class AXPort(threading.Thread):
                                 if call_st not in db.db.keys():
                                     ######################################
                                     # ADD New User in DB
-                                    db.get_entry(call_st)
+                                    db.get_entry(call_st, self.bcast_stations[0])
                                     ###########################################
                                     # New Client Beacon
-                                    if self.bcast_calls:
+                                    if self.bcast_stations:
                                         via = []
                                         for el in list(decode_inp[1]['via']):
                                             via.append([el[0], el[1], False])
@@ -158,13 +158,13 @@ class AXPort(threading.Thread):
                                                 '> You have to register your Station first for Broadcast Mode <\r'\
                                                 '> Please connect to {} to register your Station <\r'.format(
                                                 ax.get_call_str(decode_inp[1]['FROM'][0], decode_inp[1]['FROM'][1]),
-                                                self.bcast_calls[0])
-                                        self.cron_add(txt, 30, self.bcast_calls[0],
+                                                self.bcast_stations[0].call_str)
+                                        self.cron_add(txt, 30, self.bcast_stations[0].call_str,
                                                       ax.get_call_str(decode_inp[1]['FROM'][0], decode_inp[1]['FROM'][1]),
                                                       address, via, 5)
                                 else:
                                     if db.db[call_st].is_new:
-                                        if self.bcast_calls:
+                                        if self.bcast_stations:
                                             via = []
                                             for el in list(decode_inp[1]['via']):
                                                 via.append([el[0], el[1], False])
@@ -173,8 +173,8 @@ class AXPort(threading.Thread):
                                                   '> You have to register your Station first for Broadcast Mode <\r' \
                                                   '> Please connect to {} to register your Station <\r'.format(
                                                 ax.get_call_str(decode_inp[1]['FROM'][0], decode_inp[1]['FROM'][1]),
-                                                self.bcast_calls[0])
-                                            self.cron_add(txt, 30, self.bcast_calls[0],
+                                                self.bcast_stations[0].call_str)
+                                            self.cron_add(txt, 30, self.bcast_stations[0].call_str,
                                                           ax.get_call_str(decode_inp[1]['FROM'][0],
                                                                           decode_inp[1]['FROM'][1]),
                                                           address, via, 5)
@@ -666,7 +666,7 @@ class AXPort(threading.Thread):
             # if self.port_typ != 'AXIP':
             del self.ax_conn[conn_id]  # TODO AXIP non BCAST MODE
         else:
-            axip_client = db.get_entry(ax.get_call_str(rx_inp['FROM'][0], rx_inp['FROM'][1])).last_axip_addr
+            axip_client = db.get_entry(ax.get_call_str(rx_inp['FROM'][0], rx_inp['FROM'][1]), self.bcast_stations[0]).last_axip_addr
             self.tx_buffer.append([self.DM_frm(rx_inp), axip_client])
     #######################################################################
 
@@ -751,7 +751,7 @@ class AXPort(threading.Thread):
         tmp = self.ax_Stations[mycall]()
         from_call, to_call = rx_inp['FROM'], rx_inp['TO']
         tmp.dest = [from_call[0], from_call[1]]
-        tmp.db_entry = db.get_entry(ax.get_call_str(tmp.dest))
+        tmp.db_entry = db.get_entry(ax.get_call_str(tmp.dest), self.bcast_stations[0])
         via = []
         for el in rx_inp['via']:
             via.append([el[0], el[1], False])
@@ -1046,7 +1046,7 @@ else:
                     # digi_calls.append([[stat.call, stat.ssid], ax_ports[k]])
                     digi_calls[call_str] = ax_ports[n]
                 if stat.bcast_srv:
-                    ax_ports[n].bcast_calls.append(call_str)
+                    ax_ports[n].bcast_stations.append(stat)
                     # bcast_calls[call_str] = ax_ports[n]
 
             else:
@@ -1060,7 +1060,7 @@ else:
                     if stat.digi:
                         digi_calls[call_str] = ax_ports[n]
                     if stat.bcast_srv:
-                        ax_ports[n].bcast_calls.append(call_str)
+                        ax_ports[n].bcast_stations.append(stat)
                         # bcast_calls[call_str] = ax_ports[n]
         ax_ports[n].start()
         n += 1
