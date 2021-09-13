@@ -397,7 +397,6 @@ class CLIDefault(object):
             self.scr_run = False
 
     """
-
     CLIDefault.cmd_dic = dict(CLIDefault.cmd_dic_default)
     CLIDefault.cmd_dic.update({
         'T1': (testfnc, 'Test Packet sender 1'),
@@ -614,7 +613,6 @@ class CLIDefault(object):
         self.conncetion.tx_data += self.conncetion.promptvar
 
     """
-
     CLIDefault.cmd_dic = dict(CLIDefault.cmd_dic_default)
     CLIDefault.cmd_dic.update({
         'C': (connect, '(C)onnect to other Station ( Not implemented yet )'),
@@ -641,12 +639,23 @@ class CLIDefault(object):
             self.scr[2].is_new = False
             self.scr = [self.new_user, 2, self.scr[2]]
         elif self.scr[1] == 2:
-
+            inp = self.cmd_inp[0]
+            out = '{} saved ...\r' \
+                  'Please enter your Locator : '.format(inp)
+            self.scr[2].qth = inp
+            self.conncetion.tx_data += out
+            self.scr = [self.new_user, 3, self.scr[2]]
+        elif self.scr[1] == 3:
+            inp = self.cmd_inp[0]
+            out = '{} saved ...\r\r' \
+                  'Thank you for registering.\r' \
+                  'You can change all settings at any time.\r'.format(inp)
+            self.scr[2].loc = inp
+            self.conncetion.tx_data += out
             self.scr = []
             self.conncetion.tx_data += self.conncetion.promptvar
 
     """
-
     CLIDefault.cmd_dic = dict(CLIDefault.cmd_dic_default)
     CLIDefault.cmd_dic.update({
         'X': (dummy, 'Dummy'),
