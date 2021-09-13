@@ -26,6 +26,7 @@ mh = MH()
 ##################
 # Init Client DB
 print('# Init Client DB')
+print('# Init Client DB')
 db = ClientDB()
 
 
