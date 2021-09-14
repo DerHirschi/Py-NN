@@ -648,6 +648,7 @@ class CLIDefault(object):
             self.scr = [self.new_user, 3, self.scr[2]]
         elif self.scr[1] == 3:
             inp = self.cmd_inp[0]
+            config.db.save_data()
             out = '{} saved ...\r\r' \
                   'Thank you for registering.\r' \
                   'You can change all settings at any time.\r'.format(inp)
@@ -677,6 +678,7 @@ class CLIDefault(object):
                     self.scr = [self.new_user, 0, self.conncetion.db_entry]  # DUMMY
                     self.scr_run = True
                 else:
+                    # config.db.save_data()
                     self.scr = []
                     self.tx_cli_msg('Done')
     """
