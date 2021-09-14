@@ -1,3 +1,8 @@
+"""
+    crappiest code ever!!
+    was i drunken ??
+    TODO: AGAIN !!!
+"""
 import time
 from datetime import datetime
 # Gibt Monitor Daten in Datei aus. Datei mit "tail -f" im tmux aufrufen und gut..

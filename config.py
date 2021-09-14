@@ -77,7 +77,7 @@ class DefaultParam(object):
         self.mh = mh
         ######################
         # Client DB entry
-        # self.db_entry = db.get_entry(self.call_str)
+        self.db_entry = None
         ###################################
         # CLI Obj
         self.cli = None
@@ -179,7 +179,7 @@ class MD3SAW12(DefaultParam):
     call = 'MD3SAW'
     ssid = 12                                                       # 0 = all
     digi = True                                                     # Digipeating
-    cli_type = [1]                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_type = [1, 4]                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
     cli_sufix = ''
     bcast_srv = True
     ax25PacLen = 250    # Max Pac len

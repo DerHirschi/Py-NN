@@ -1,5 +1,6 @@
 import config
 import ax25enc as ax
+import monitor
 
 
 class CLIDefault(object):
@@ -655,6 +656,29 @@ class CLIDefault(object):
             self.scr = []
             self.conncetion.tx_data += self.conncetion.promptvar
 
+    def show_own_db_ent(self):
+        if self.conncetion.db_entry is None:
+            monitor.debug_out('Error show_own_db_ent. No DB Entry..', True)
+        else:
+            if not self.scr:
+                self.conncetion.tx_data += '\r<User Data>\r\r'
+                self.conncetion.tx_data += 'Name: {}\r'.format(self.conncetion.db_entry.name)
+                self.conncetion.tx_data += 'QTH: {}\r'.format(self.conncetion.db_entry.qth)
+                self.conncetion.tx_data += 'Locator: {}\r'.format(self.conncetion.db_entry.loc)
+                self.conncetion.tx_data += 'Max Pac: {}\r'.format(self.conncetion.db_entry.max_pac)
+                self.conncetion.tx_data += 'Pac Len: {}\r'.format(self.conncetion.db_entry.pac_len)
+                # self.conncetion.tx_data += '\r'.join("%s: %s" % item for item in vars(self.conncetion.db_entry).items())
+                self.conncetion.tx_data += '\rChange Data ? Type Y for Yes or Enter to continue.> '
+                # self.conncetion.tx_data += self.conncetion.promptvar
+                self.scr = [self.show_own_db_ent, 1]
+            elif self.scr[1] == 1:
+                inp = self.cmd_inp[0]
+                if inp.upper() == 'Y':
+                    self.scr = [self.new_user, 0, self.conncetion.db_entry]  # DUMMY
+                    self.scr_run = True
+                else:
+                    self.scr = []
+                    self.tx_cli_msg('Done')
     """
     CLIDefault.cmd_dic = dict(CLIDefault.cmd_dic_default)
     CLIDefault.cmd_dic.update({
@@ -697,7 +721,7 @@ def init_cli(conn_obj):
     # AXIP
     if 4 in conn_obj.cli_type:
         tmp_cmd_dict.update({
-            # 'X': (CLIDefault.new_user, 'Dummy'),
+            'UD': (CLIDefault.show_own_db_ent, 'Show own (U)ser (D)atabse entry'),
         })
     # Test
     if 9 in conn_obj.cli_type:

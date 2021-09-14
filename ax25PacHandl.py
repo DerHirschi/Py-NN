@@ -792,7 +792,7 @@ class AXPort(threading.Thread):
             self.cron_del(tmp.db_entry.call_str)
             # Setup New User CLI TODO
             tmp.cli.scr = [tmp.cli.new_user, 0, tmp.db_entry]    # DUMMY
-            tmp.cli.scr_run = True    # DUMMY
+            tmp.cli.scr_run = True
             # ADD User zu User C TEXT ( New User CTEXT )
             tmp.station_ctexte_var[tmp.dest[0]] = 'HELLO NEW USER ..BLA BLA'
             ####################################
