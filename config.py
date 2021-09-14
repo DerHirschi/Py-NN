@@ -26,7 +26,6 @@ mh = MH()
 ##################
 # Init Client DB
 print('# Init Client DB')
-print('# Init Client DB')
 db = ClientDB()
 
 
@@ -253,36 +252,7 @@ class NodeLink(object):
         self.link = None
         self.stat = 'DISC'
 
-"""
-def conf_stations():
 
-    #################################################
-    # INIT Vars
-    '''
-    Stations = {
-        'MD3SAW-10': MD3SAW10(),
-        'MD3SAW-11': MD3SAW11(),
-        'MD4SAW': MD4SAW(),
-    }
-    '''
-    for obj in stat_list:
-        if obj.ssid:
-            call_str = ax.get_call_str(obj.call, obj.ssid)
-            obj.call_str = call_str
-            Stations[call_str] = obj
-            if obj.digi:
-                digi_calls.append([obj.call, obj.ssid])
-        else:
-            #########################################
-            # If no SSID make all SSIDs connectable
-            for ssid in range(16):
-                call_str = ax.get_call_str(obj.call, ssid)
-                obj.call_str = call_str
-                Stations[call_str] = obj
-                if obj.digi:
-                    digi_calls.append([obj.call, ssid])
-
-"""
 ################################
 # TEST DATA
 ax_test_pac = [{

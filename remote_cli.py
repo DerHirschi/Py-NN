@@ -636,7 +636,7 @@ class CLIDefault(object):
                   'Please enter your QTH : '.format(inp)
             self.scr[2].name = inp
             self.conncetion.tx_data += out
-            self.scr[2].is_new = False
+            self.scr[2].is_new = False          # TODO Is just set in setup_new_connection
             self.scr = [self.new_user, 2, self.scr[2]]
         elif self.scr[1] == 2:
             inp = self.cmd_inp[0]

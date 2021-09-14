@@ -8,8 +8,7 @@ client_db = 'data/clientDB.pkl'
 
 
 class Client(object):
-    def __init__(self, call, station=None):     # TODO Replace None with DefaultParm
-        self.station = station
+    def __init__(self, call):     # TODO Replace None with DefaultParm
         self.call_str = call
         self.call = ax.get_ssid(call)[0]
         self.ssid = ax.get_ssid(call)[1]
@@ -21,12 +20,9 @@ class Client(object):
         self.is_new = True
         self.copy_fm = ''
         self.last_seen = time.time()
-        if self.station:
-            self.pac_len = self.station.ax25PacLen
-            self.max_pac = self.station.ax25MaxFrame
-        else:
-            self.pac_len = None
-            self.max_pac = None
+
+        self.pac_len = 0
+        self.max_pac = 0
         ########
         # self.filter
         # self.mode
@@ -53,10 +49,10 @@ class ClientDB:
         except EOFError:
             pass
 
-    def get_entry(self, call, station):
+    def get_entry(self, call):
         if call not in self.db.keys():
             print('# Client DB: New User added > ' + call)
-            self.db[call] = Client(call, station)
+            self.db[call] = Client(call)
         return self.db[call]
 
     def save_data(self):

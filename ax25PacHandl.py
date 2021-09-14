@@ -146,7 +146,13 @@ class AXPort(threading.Thread):
                                 if call_st not in db.db.keys():
                                     ######################################
                                     # ADD New User in DB
-                                    db.get_entry(call_st, self.bcast_stations[0])
+                                    db_e = db.get_entry(call_st)
+                                    """
+                                    if hasattr(db, 'pac_len'):
+                                        db_e.pac_len = self.bcast_stations[0].ax25PacLen
+                                    if hasattr(db, 'max_pac'):
+                                        db_e.max_pac = self.bcast_stations[0].ax25MaxFrame
+                                    """
                                     ###########################################
                                     # New Client Beacon
                                     if self.bcast_stations:
@@ -164,8 +170,10 @@ class AXPort(threading.Thread):
                                                       address, via, 5)
                                 else:
                                     if db.db[call_st].is_new:
+                                        # print('New User 222222')
                                         if self.bcast_stations:
                                             via = []
+                                            # TODO .. need a func for this and above
                                             for el in list(decode_inp[1]['via']):
                                                 via.append([el[0], el[1], False])
                                             via.reverse()
@@ -666,7 +674,7 @@ class AXPort(threading.Thread):
             # if self.port_typ != 'AXIP':
             del self.ax_conn[conn_id]  # TODO AXIP non BCAST MODE
         else:
-            axip_client = db.get_entry(ax.get_call_str(rx_inp['FROM'][0], rx_inp['FROM'][1]), self.bcast_stations[0]).last_axip_addr
+            axip_client = db.get_entry(ax.get_call_str(rx_inp['FROM'][0], rx_inp['FROM'][1])).last_axip_addr
             self.tx_buffer.append([self.DM_frm(rx_inp), axip_client])
     #######################################################################
 
@@ -751,7 +759,7 @@ class AXPort(threading.Thread):
         tmp = self.ax_Stations[mycall]()
         from_call, to_call = rx_inp['FROM'], rx_inp['TO']
         tmp.dest = [from_call[0], from_call[1]]
-        tmp.db_entry = db.get_entry(ax.get_call_str(tmp.dest), self.bcast_stations[0])
+        tmp.db_entry = db.get_entry(ax.get_call_str(tmp.dest))
         via = []
         for el in rx_inp['via']:
             via.append([el[0], el[1], False])
@@ -780,6 +788,7 @@ class AXPort(threading.Thread):
             print('NEW USER CONNECTED !!!')
             # Del New User Beacon
             # TODO Beacon ll still added again till user has registration complete
+            tmp.db_entry.is_new = False
             self.cron_del(tmp.db_entry.call_str)
             # Setup New User CLI TODO
             tmp.cli.scr = [tmp.cli.new_user, 0, tmp.db_entry]    # DUMMY
@@ -788,7 +797,6 @@ class AXPort(threading.Thread):
             tmp.station_ctexte_var[tmp.dest[0]] = 'HELLO NEW USER ..BLA BLA'
             ####################################
             # tmp.db_entry.is_new = False
-
         tmp.conn_id = conn_id
         self.ax_conn[conn_id] = tmp
         self.set_t3(conn_id)
@@ -806,11 +814,19 @@ class AXPort(threading.Thread):
         else:
             data = str(self.ax_conn[conn_id].tx_data)
             tr = False
-        paclen = int(self.ax_conn[conn_id].ax25PacLen)
         if data:
-            free_txbuff = int(self.ax_conn[conn_id].ax25MaxFrame) - len(self.ax_conn[conn_id].noAck)
+            if self.ax_conn[conn_id].db_entry.max_pac:
+                maxFrm = int(self.ax_conn[conn_id].db_entry.max_pac)
+            else:
+                maxFrm = int(self.ax_conn[conn_id].ax25MaxFrame)
+            free_txbuff = maxFrm - len(self.ax_conn[conn_id].noAck)
             for i in range(free_txbuff):
                 if data:
+                    if self.ax_conn[conn_id].db_entry.pac_len:
+                        paclen = int(self.ax_conn[conn_id].db_entry.pac_len)
+                    else:
+                        paclen = int(self.ax_conn[conn_id].ax25PacLen)
+
                     if self.I_TX(conn_id, data[:paclen]):
                         data = data[paclen:]
                     else:
@@ -848,21 +864,29 @@ class AXPort(threading.Thread):
         if to_call_str in cron_pacs.keys():
             for el in cron_pacs[to_call_str]:
                 if text == el[0] and from_call_str == el[1] and axip_cl == el[4] and via == el[5]:
+                    print('Add Again')
                     return
             cron_pacs[to_call_str].append([text, from_call_str, period, time.time(), axip_cl, via, n_times])
+            print('Add Again 2')
+
         else:
             cron_pacs[to_call_str] = [[text, from_call_str, period, time.time(), axip_cl, via, n_times]]
 
     def cron_del(self, to_call_str):
+        print('Del Crone')
+
         if to_call_str in cron_pacs.keys():
+            print('Del Crone')
+            print(str(cron_pacs))
             del cron_pacs[to_call_str]
+            print(str(cron_pacs))
 
     def cron_main(self):
         for k in list(cron_pacs.keys()):
             del_ind = []
             for el in cron_pacs[k]:
                 if el[3] < time.time():
-                    print('Crone Triggert: ' + el[0])
+                    print('Crone Triggert: ' + str(el))
                     el[3] = time.time() + el[2]
                     if k == 'ALL':
                         for ke in self.axip_clients.clients.keys():
@@ -902,7 +926,7 @@ class AXPort(threading.Thread):
                     if conn_id != self.ax_conn[conn_id].node_links[ke].caller_id and\
                                 self.ax_conn[conn_id].node_links[ke].stat == 'DISC' and\
                                 self.ax_conn[conn_id].stat != 'DISC':
-                        print(">>>>>>> " + str(ke))
+                        print(">Dead Link>>>>>> " + str(ke))
                         self.DISC_TX(conn_id)
                 #############################################
                 # CLI
