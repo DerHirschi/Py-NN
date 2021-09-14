@@ -1,6 +1,6 @@
 import remote_cli
 from remote_cli import init_cli
-from ax25Statistics import *
+from ax25Statistics import MH
 from Clients_cfg import *
 
 ser_port = "/tmp/ptyAX5"
@@ -199,6 +199,29 @@ class MD3SAW12(DefaultParam):
     parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
 
 
+class MD3SAW14(DefaultParam):
+    call = 'MD3SAW'
+    ssid = 14                                                       # 0 = all
+    digi = True                                                     # Digipeating
+    cli_type = [1, 9]                                                    # Remote CLI Type ( 1=NODE, 2=TERM, 3=BBS, 9=Test)
+    cli_sufix = ''
+    bcast_srv = False
+    ax25PacLen = 128    # Max Pac len
+    ax25MaxFrame = 5    # Max (I) Frames
+    ax25TXD = 30        # TX Delay for RTT Calculation  !! Need to be high on AXIP for T1 calculation
+    ax25T2 = 2888       # T2 (Response Delay Timer) Default: 2888 / (parm_baud / 100)
+    ax25T3 = 18000      # T3 (Inactive Link Timer)
+    ax25N2 = 15
+
+    ctext = 'MD3SAW-14\r' \
+            'Diese Station dient nur zu Testzwecken !\r' \
+            'This Station is just for Testing purposes !\r'
+    prompt = 'MD3SAW-14> '
+    parm_baud = DefaultParam.parm_baud
+    parm_T2 = ax25T2 / (parm_baud / 100)
+    parm_IRTT = (parm_T2 + ax25TXD) * 2 # Initial-Round-Trip-Time (Auto Parm) (bei DAMA wird T2*2 genommen)/NO DAMA YET
+
+
 class MD4SAW(DefaultParam):
     call = 'MD4SAW'
     ssid = 0                                                       # 0 = all
@@ -224,19 +247,29 @@ class MD4SAW(DefaultParam):
 conf_ax_ports = {
     0: {
         'typ': 'KISS',
-        'parm1': "/tmp/ptyAX5",
-        'parm2': 1200,
+        'add': "/tmp/ptyAX5",
+        'baud': 1200,
         'name': 'Port 0 KISS',
         # 'stat_list': [DefaultParam, MD3SAW11]
         'stat_list': [MD3SAW11]
     },
     1: {
         'typ': 'AXIP',
-        'parm1': '192.168.178.150',     # Own Address
-        'parm2': 8099,                  #
+        'add': '192.168.178.150',     # Own Address
+        'port': 8099,                  #
+        'baud': 1200,                  # TODO Just a Dummy
         'name': 'Port 1 AXIP',
         'bcast': True,                  # AXIP Broadcast Server (Send icomming Traffic out to all other AXIP Clients)
         'stat_list': [MD3SAW10, MD3SAW12]
+    },
+    2: {
+        'typ': 'DW',                    # TCIP to Direwolf
+        'add': '127.0.0.1',           # DW Adress
+        'port': 8001,                  # DW Port
+        'baud': 1200,                  # DW Baud
+        'name': 'Port 2 DWolf',
+        # 'bcast': False,                 # AXIP Broadcast Server (Send icomming Traffic out to all other AXIP Clients)
+        'stat_list': [MD3SAW14]
     },
 }
 

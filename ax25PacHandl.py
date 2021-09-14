@@ -1,12 +1,13 @@
-import os
-import time
-
+# import os    # in config.py > ax25Statistics.py
+# import time  # in config.py > ax25Statistics.py
 import serial
 import socket
 import threading
+
 import monitor
 from config import *
 import ax25enc as ax
+
 
 # TESTING and DEBUGGING
 debug = monitor.debug
@@ -29,18 +30,33 @@ class AXPort(threading.Thread):
         }
         self.port_id = port_conf_id
         self.port_typ = conf_ax_ports[port_conf_id]['typ']
+        #######
         self.axip_clients = None
+        ##
+        self.bcast_stations = []
+        self.ser_port = None
+        self.dw_ip = None
+        self.dw_port = None
+        self.axip_ip = None
+        self.axip_port = None
+        self.axip_bcast = None
+        #######
         if self.port_typ == 'KISS':
-            self.ser_port = conf_ax_ports[port_conf_id]['parm1']
-            self.ser_baud = conf_ax_ports[port_conf_id]['parm2']
+            self.ser_port = conf_ax_ports[port_conf_id]['add']
+            self.ser_baud = conf_ax_ports[port_conf_id]['baud']
+        elif self.port_typ == 'DW':
+            self.ser_baud = conf_ax_ports[port_conf_id]['baud']
+            self.dw_ip = conf_ax_ports[port_conf_id]['add']
+            self.dw_port = conf_ax_ports[port_conf_id]['port']
         elif self.port_typ == 'AXIP':
-            self.ser_baud = 1200        # TODO !! Just a dummy value !!
-            self.axip_ip = conf_ax_ports[port_conf_id]['parm1']
-            self.axip_port = conf_ax_ports[port_conf_id]['parm2']
+            self.ser_baud = conf_ax_ports[port_conf_id]['baud']
+            self.axip_ip = conf_ax_ports[port_conf_id]['add']
+            self.axip_port = conf_ax_ports[port_conf_id]['port']
             self.axip_bcast = conf_ax_ports[port_conf_id]['bcast']
-            self.bcast_stations = []
+            # self.bcast_stations = []
             #################################
-            # Init AXIP Client List
+            # TODO Init AXIP Client List
+            # TODO Initialising it for all ports to make axip routes on all ports available
             self.axip_clients = AXIPClients(self)
         ########################################
         # AX25 Parameters
@@ -53,7 +69,7 @@ class AXPort(threading.Thread):
 
     def run(self):
         #############################################################################
-        # MAIN LOOP  / Thread
+        # MAIN LOOP  / Thread   # TODO Clean up this mess...
         #############################################################################
         # global test_snd_packet, tx_buffer, timer_T0
         if self.port_typ == 'KISS':
@@ -111,7 +127,7 @@ class AXPort(threading.Thread):
 
             while not p_end:
                 try:
-                    bytesAddressPair = axip.recvfrom(332)
+                    bytesAddressPair = axip.recvfrom(333)
                     b = bytesAddressPair[0]
                     address = bytesAddressPair[1]
                     # clientMsg = "Message from Client:{}".format(b)
@@ -258,6 +274,67 @@ class AXPort(threading.Thread):
                         n += 1
 
             axip.close()
+
+        elif self.port_typ == 'DW':
+            dw = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+            address = (self.dw_ip, self.dw_port)
+            print('DW ADD: {}'.format(address))
+            # print('connecting to %s port %s' % server_address)
+            try:
+                dw.connect(address)
+                dw.settimeout(0.5)
+            except (OSError, ConnectionRefusedError, ConnectionError) as e:
+                monitor.debug_out('Error. Cant connect to Direwolf {}'. format(address), True)
+                monitor.debug_out('{}'. format(e), True)
+
+            while not p_end:
+                try:
+                    b = dw.recv(333)
+                    if b:  # RX ############
+                        self.set_t0()
+                        dekiss_inp = ax.decode_ax25_frame(b[2:-1])  # DEKISS
+                        monitor.debug_out("----------------DW Data IN ----------------------")
+                        # decode_inp = ax.decode_ax25_frame(b)
+                        if dekiss_inp:
+                            self.handle_rx(dekiss_inp)
+                            ############################
+                            # Monitor TODO Better Monitor
+                            monitor.monitor(dekiss_inp[1], self.port_id)
+                            ############################
+                            # MH List and Statistics
+                            mh.mh_inp(dekiss_inp, self.port_id)
+                            self.timer_T0 = 0
+                            monitor.debug_out('################ DEC END ##############################')
+                        else:
+                            monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
+                        monitor.debug_out("_________________________________________________")
+                        # pack = b''
+                    self.handle_tx()  # TX #############################################################
+                    if self.tx_buffer:
+                        # monitor.debug_out(self.ax_conn)
+                        n = 0
+                        while self.tx_buffer and n < self.parm_MaxBufferTX:
+                            enc = ax.encode_ax25_frame(self.tx_buffer[0][0])
+                            # ax.send_kiss(ser, enc)
+                            # enc = bytes.fromhex(enc)
+                            mon = ax.decode_ax25_frame(bytes.fromhex(enc))
+                            enc = bytes.fromhex('c000' + enc + 'c0')
+                            dw.sendall(enc)
+                            # mon = ax.decode_ax25_frame(enc)
+                            # self.handle_rx(mon)  # Echo TX in Monitor
+                            ############################
+                            # Monitor TODO Better Monitor
+                            monitor.monitor(mon[1], self.port_id)
+                            monitor.debug_out("Out> " + str(mon))
+                            self.tx_buffer = self.tx_buffer[1:]
+                            n += 1
+
+                except socket.timeout:
+                    monitor.debug_out('Error. Direwolf connection Timeout{}'.format(address), True)
+
+            dw.close()
+
+        # TODO .. Every Thread execute this below !!!
         ########################
         # Save Data to File
         mh.save_mh_data()
@@ -782,15 +859,12 @@ class AXPort(threading.Thread):
         tmp.db_entry.axip_addr = axip_addr
         ####################################
         # TODO Broadcast New User
-        # print(tmp.db_entry)
-        # print(tmp.db_entry.is_new)
         if tmp.db_entry.is_new:
             print('NEW USER CONNECTED !!!')
             # Del New User Beacon
-            # TODO Beacon ll still added again till user has registration complete
+            # Beacon will still added again till user has registration complete
             tmp.db_entry.is_new = False
             self.cron_del(tmp.db_entry.call_str)
-            # Setup New User CLI TODO
             tmp.cli.scr = [tmp.cli.new_user, 0, tmp.db_entry]    # DUMMY
             tmp.cli.scr_run = True
             # ADD User zu User C TEXT ( New User CTEXT )
@@ -1044,7 +1118,8 @@ if i == 't' or i == 'T':
     #enc = ax.encode_ax25_frame(ax_test_pac[test_snd_packet])
     #print(ax.decode_ax25_frame(bytes.fromhex(enc)))
     # ERROR FRAME> print(ax.decode_ax25_frame(b'\xc0\x00\x95ki^\x11\x19\xafw%!\xc5\xf7\xb7\x88S\n\x18W\xca\xd5\xdf\x87<\xc9}\x1bW\xc3\xcd\xad\x1d<$\xa5\x15\xef\x8aXS\xc0'[2:-1]))
-    print(ax.decode_ax25_frame(b'\xc0\x00\xa6\xa8\x82\xa8\xaa\xa6\xe0\x88\xb0`\xa6\x82\xaea\x13\xf0Links:  0, Con\xc0'[2:-1]))
+    # print(ax.decode_ax25_frame(b'\xc0\x00\xa6\xa8\x82\xa8\xaa\xa6\xe0\x88\xb0`\xa6\x82\xaea\x13\xf0Links:  0, Con\xc0'[2:-1]))
+    print(ax.decode_ax25_frame(b'\xc0\x00\x9a\x88d\xa6\x82\xae\xe0\x88\xb0`\xa6\x82\xae`\x86\x84`\xa6\x82\xaea"\xf0DX0SAW (18:12)>\xc0'[2:-1]))
     # b'u\x95ki^\x11\x19\xafw%!\xc5\xf7\xb7\x88S\n\x18W\xca\xd5\xdf\x87<\xc9}\x1bW\xc3\xcd\xad\x1d<$\xa5\x15\xef\x8aXS'
 else:
     # Debug GUI VARS

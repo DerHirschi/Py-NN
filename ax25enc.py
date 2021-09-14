@@ -1,7 +1,6 @@
-import monitor
 import crcmod
+import monitor
 debug = monitor.debug
-
 crc_x25 = crcmod.predefined.mkCrcFun('x-25')
 
 
@@ -71,7 +70,6 @@ def decode_ax25_frame(data_in):
         bin_char = bin(int(in_byte, 16))[2:].zfill(8)[:-1]      # TODO just Shift the Bit
         char = chr(int(bin_char, 2))
 
-        # return bytes.fromhex(he).decode().replace(' ', '')
         return char.replace(' ', '')
 
     def decode_ssid(in_byte):       # Address > CRRSSID1    Digi > HRRSSID1
@@ -272,9 +270,9 @@ def decode_ax25_frame(data_in):
                     else:
                         tmp_str2.append(i)                          # TODO chr() ?
             else:
-                tmp_str2.append(i)                              # TODO chr() ?
+                tmp_str2.append(i)                                  # TODO chr() ?
 
-    text = str(tmp_str2.decode(errors='ignore'))                # TODO chr() ?
+    text = str(tmp_str2.decode(errors='ignore'))                    # TODO chr() ?
     monitor.debug_out('RES: ' + address_str)
     monitor.debug_out(text)
     if ret['ctl']:
@@ -311,7 +309,6 @@ def encode_ax25_frame(con_data):
 
     typ = con_data['typ']
     pid = con_data['pid']
-    # dest_c, call_c = True, True
     if con_data['cmd']:
         dest_c, call_c = True, False
     else:
@@ -376,7 +373,7 @@ def encode_ax25_frame(con_data):
             elif flag == 'UI':
                 ret = '000' + ret[3] + '00' + ret[-2:]
                 pid_tr, info_f_tr = True, True
-            elif flag == 'FRMR':                        # TODO Not implemented yet
+            elif flag == 'FRMR':                        # TODO Not completely implemented yet
                 ret = '100' + ret[3] + '01' + ret[-2:]
                 info_f_tr = True
             elif flag == 'TEST':                        # TODO Not completely implemented yet
@@ -388,7 +385,6 @@ def encode_ax25_frame(con_data):
         return format_hex(ret), pid_tr, info_f_tr
 
     def encode_pid_byte(pid_in=6):
-        # TODO Implement Rest for Digi and change ret to hex
         ret = ''.zfill(8)
         if pid_in == 1:
             ret = '00010000'
