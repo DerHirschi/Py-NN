@@ -1,0 +1,290 @@
+>SOFTWARE @WW     de:DK4NB  03.06.94 10:06 200  11487 Bytes
+>DOC: the #BIN# protocol
+>*** Bulletin-ID: 3154DB0AAB5F ***
+>
+>940531/2151z DB0JES, 940531/2127z DB0EAM, 940531/2121z DB0SIF
+>940531/2109z DK0MTV, 940531/2106z DB0HOM, 940531/2106z DB0RBS
+>940531/2101z DB0PIC, 940531/2100z DB0KCP, 940531/2100z DB0AAB
+>From: DK4NB @ DB0AAB.#BAY.DEU.EU
+>To  : SOFTWARE @ WW
+
+This is the documentation for the so-called #BIN# protocol, a
+procedure for transferring binary and other data files without 
+undue overhead.
+
+
+0) REVISION LOG
+
+31 May 94   First published.
+
+
+1) HISTORY
+
+The original #BIN# protocol was probably devised by DL1BHO for use
+with his TurboPacket program. The protocol underwent a number of 
+changes and improvements at the hands of ex-DL1MEN who is now DK4NB. 
+The #BIN# protocol is implemented in most packet terminal programs 
+utilizing the WA8DED host mode, such as TurboPacket, TOP, GP, SP and 
+others, as well as the F6FBB and TheBox BBS software.
+
+As of today (June 1994), the most recent version of the #BIN# 
+protocol is only available in SP version 9. It is hoped that this 
+version is adopted by other packet terminal programs. Due to its very 
+low overhead, it is a natural for replacing the obsolete YAPP protocol.
+
+
+2) PROTOCOL DESCRIPTION
+
+2.1) BASIC
+
+The basic #BIN# protocol consists of three elements:
+
+The station transmitting the file (from now on called STATION A)
+transmits  
+
+  #BIN#nnnnn\r
+
+and the station receiving the file (from now on called STATION B)
+transmits
+
+  #OK#\r
+
+in positive response, or
+
+  #NO#...\r
+
+in negative response.
+
+"nnnnn" = the length of the file in decimal bytes
+"\r"    = a RETURN character
+"..."   = any explanatory text as to why the file transfer is
+          rejected.
+
+STATION B is to ignore any data not beginning with #OK# or #NO#.
+
+All Elements are to start at the beginning of a frame and be contained
+entirely within one frame. The frame immediately preceding an element
+is to end with a return ("\r").
+
+A transfer is aborted in midstream by one of the stations transmitting
+
+\r#ABORT#\r
+
+
+2.2) EXTENDED
+
+The extended #BIN# protocol has last been changed in January 1994 and
+is described as follows:
+
+STATION A transmits:
+
+  #BIN#nnnnn#|ccccc#$dddddddd?#ssss\r
+       -----  -----  --------  ----
+       !      !      !         file name without path
+       !      !      file date and time in 'struct ftime' format 
+       !      !      (BCC3.x) in hexadecimal notation (32 bits)
+       !      The CRC of the whole file in decimal. Standard CCITT
+       !      polynomial.
+       file length in decimal bytes.
+
+The negative response by STATION B is defined as above. The positive response
+may be
+
+  #OK#\r  (1)
+
+or
+
+  #OK#ssss\r (2)
+
+or
+
+  #OK#ssss#$nnnnn#ccccc\r (3)
+      ----  ----- -----
+      !     !     CRC of received file fragment
+      !     number of bytes in received fragment
+      file name without path
+
+Case (1) and case (2) are treated identically. Currently, the #OK#
+file name is transmitted for information to the operator only, 
+since the receiving side is free to choose any file name.
+
+Case (3) is the response used if it had previously been attempted to
+transfer the file, and the transfer has failed due to a manual abort 
+or a broken link, or a disconnect. Note that when aborting, it is the
+responsibility of the receiving station not to allow any extraneous 
+information, such as digipeater status messages or the #ABORT# 
+command or TNC status messages or any other data not belonging to the 
+received file to be stored. If the receiving station cannot guarantee 
+this, it should delete the file fragment.
+
+When STATION A re-transmits the same file, STATION B should check for
+existence of a previously stored file fragment. If there is a
+fragment,then the data according to (3) should be determined and the
+appropriate #OK# message should be transmitted.
+
+The method of identifying a file fragment is up to the protocol
+implementation. In the case of SP, the file extension contains a "$"
+in place of the first character, e.g. "TEST.LZH" generates a fragment 
+called "TEST.$ZH". Better operating systems than MS-DOS allow long file 
+names which could be used to better denote a fragment.
+
+STATION A, upon receiving the #OK# according to (1) or (2), should
+commence transmission of the file. The logical conclusion of the file 
+transfer is achieved with the transmission of the last byte of the file. 
+Upon receiving #OK# according to (3), STATION A should determine the CRC 
+of the fragment and compare it with the CRC reported. Appropriate 
+measures must be taken if the CRCs do not match.
+
+
+2.3) OPERATOR CHAT
+
+While STATION A is in binary transfer mode (i.e. not all bytes of the
+file have been committed to the TNC yet), the user is allowed to transmit
+textual data not related to the binary transfer. All frames of such data 
+must be preceded by the string 
+
+SP\-
+
+and STATION B must not regard frames starting with this string as
+parts of the binary file transfer. This allows the operators to chat 
+while transferring the file. STATION B, when transmitting data, need 
+not take any precautions. STATION A must not cause an abort when receiving 
+any data from STATION B that does not consist of the special abort 
+element described above.
+
+
+2.4) INABILITY TO RESUME
+
+If STATION A is unable to resume an aborted binary transfer, it should
+signal this to STATION B at the start of the transfer by not
+transmitting the question mark ("?") shown in the #BIN# element above. 
+If this question mark is missing, STATION B is to take whatever measures 
+required to either reject the transfer or to quietly overwrite the fragment.
+
+If STATION B is unable to resume an aborted binary transfer, it should
+delete aborted file fragments or take whatever steps necessary to not
+cause an error message should STATION A repeat the transfer attempt.
+
+
+2.5) CRC ERRORS
+
+If, at the end of a transfer, STATION B detects a CRC error, it should
+report this to STATION A and take whatever steps required (e.g. delete
+the damaged file). The format of this report may be of any kind, since 
+it is not used by the protocol.
+
+
+2.6) SUCCESS
+
+STATION B should, at the end of a successful transfer, transmit a
+success message to STATION A. It is recommended that STATION A send one 
+to STATION B as well. Neither message will be part of the protocol 
+specification. Provisions should be made to transmit success messages 
+on a per CALL SIGN basis, so as to not send such messages to BBS systems, 
+which might be confused and report invalid commands. Success messages 
+only make sense when transmitted to a human operator.
+
+
+3) AUTOMATIC #BIN#
+
+Under certain circumstances, STATION B should react to the #BIN#
+element even if it has not been placed in binary mode. An example would 
+be the reception of a binary file from a TheBox BBS, which simply sends 
+the ##BIN# element immediately followed by data. Normal procedure,
+however, calls for some other means of initiation.
+
+A second use for automatic #BIN# would be consecutive transmission of
+multiple files. The list of files is to be controleld by STATION A,
+and STATION B must be in a mode which allows automatic responses to 
+#BIN#. The protocol does not allow auto resume with automatic #BIN#.
+
+
+4) INITIATION OF A BINARY TRANSFER
+
+A binary transfer may be initiated at the programmer's discretion.
+Usually, this will be a command issued by one of the two stations 
+involved. A typical constellation is a packet user controlling an 
+unattended station. That unattended station should place the 
+appropriate commands at the remote user's disposal. Implementation 
+of such remote commands depends on factors such as the programmer's 
+fancy or the general purpose of the station to be controlled and 
+their description is beyond the scope of this document.
+
+
+5) FURTHER INFORMATION, CHANGE PROPOSALS
+
+All communication regarding the Extended #BIN# Protocol is to be
+directed to the author, 
+
+            DK4NB @ DB0AAB.DEU.EU or Compuserve 100346,2236
+                 (Internet 100346.2236@composerve.com).
+
+This specification is subject to change without prior notice. Any
+changes will be published. Anyone making changes to this protocol
+specification does so at their own risk.
+
+
+6) CRC ROUTINE
+
+The follwong C code consists of the standard CRC table and a macro
+used to access the table.
+
+/*
+ *      crctab calculated by Mark G. Mendel, Network Systems
+ *      Corporation
+ */
+unsigned short crctab[256] = {
+    0x0000,0x1021,0x2042,0x3063,0x4084,0x50a5,0x60c6,0x70e7,
+    0x8108,0x9129,0xa14a,0xb16b,0xc18c,0xd1ad,0xe1ce,0xf1ef,
+    0x1231,0x0210,0x3273,0x2252,0x52b5,0x4294,0x72f7,0x62d6,
+    0x9339,0x8318,0xb37b,0xa35a,0xd3bd,0xc39c,0xf3ff,0xe3de,
+    0x2462,0x3443,0x0420,0x1401,0x64e6,0x74c7,0x44a4,0x5485,
+    0xa56a,0xb54b,0x8528,0x9509,0xe5ee,0xf5cf,0xc5ac,0xd58d,
+    0x3653,0x2672,0x1611,0x0630,0x76d7,0x66f6,0x5695,0x46b4,
+    0xb75b,0xa77a,0x9719,0x8738,0xf7df,0xe7fe,0xd79d,0xc7bc,
+    0x48c4,0x58e5,0x6886,0x78a7,0x0840,0x1861,0x2802,0x3823,
+    0xc9cc,0xd9ed,0xe98e,0xf9af,0x8948,0x9969,0xa90a,0xb92b,
+    0x5af5,0x4ad4,0x7ab7,0x6a96,0x1a71,0x0a50,0x3a33,0x2a12,
+    0xdbfd,0xcbdc,0xfbbf,0xeb9e,0x9b79,0x8b58,0xbb3b,0xab1a,
+    0x6ca6,0x7c87,0x4ce4,0x5cc5,0x2c22,0x3c03,0x0c60,0x1c41,
+    0xedae,0xfd8f,0xcdec,0xddcd,0xad2a,0xbd0b,0x8d68,0x9d49,
+    0x7e97,0x6eb6,0x5ed5,0x4ef4,0x3e13,0x2e32,0x1e51,0x0e70,
+    0xff9f,0xefbe,0xdfdd,0xcffc,0xbf1b,0xaf3a,0x9f59,0x8f78,
+    0x9188,0x81a9,0xb1ca,0xa1eb,0xd10c,0xc12d,0xf14e,0xe16f,
+    0x1080,0x00a1,0x30c2,0x20e3,0x5004,0x4025,0x7046,0x6067,
+    0x83b9,0x9398,0xa3fb,0xb3da,0xc33d,0xd31c,0xe37f,0xf35e,
+    0x02b1,0x1290,0x22f3,0x32d2,0x4235,0x5214,0x6277,0x7256,
+    0xb5ea,0xa5cb,0x95a8,0x8589,0xf56e,0xe54f,0xd52c,0xc50d,
+    0x34e2,0x24c3,0x14a0,0x0481,0x7466,0x6447,0x5424,0x4405,
+    0xa7db,0xb7fa,0x8799,0x97b8,0xe75f,0xf77e,0xc71d,0xd73c,
+    0x26d3,0x36f2,0x0691,0x16b0,0x6657,0x7676,0x4615,0x5634,
+    0xd94c,0xc96d,0xf90e,0xe92f,0x99c8,0x89e9,0xb98a,0xa9ab,
+    0x5844,0x4865,0x7806,0x6827,0x18c0,0x08e1,0x3882,0x28a3,
+    0xcb7d,0xdb5c,0xeb3f,0xfb1e,0x8bf9,0x9bd8,0xabbb,0xbb9a,
+    0x4a75,0x5a54,0x6a37,0x7a16,0x0af1,0x1ad0,0x2ab3,0x3a92,
+    0xfd2e,0xed0f,0xdd6c,0xcd4d,0xbdaa,0xad8b,0x9de8,0x8dc9,
+    0x7c26,0x6c07,0x5c64,0x4c45,0x3ca2,0x2c83,0x1ce0,0x0cc1,
+    0xef1f,0xff3e,0xcf5d,0xdf7c,0xaf9b,0xbfba,0x8fd9,0x9ff8,
+    0x6e17,0x7e36,0x4e55,0x5e74,0x2e93,0x3eb2,0x0ed1,0x1ef0
+};
+
+/*
+ * updcrc macro derived from article Copyright (C) 1986 Stephen
+ * Satchell.
+ * NOTE: First argument must be in range 0 to 255.
+ *       Second argument is referenced twice.
+ *
+ * Programmers may incorporate any or all code into their programs,
+ * giving proper credit within the source. Publication of the
+ * source routines is permitted so long as proper credit is given
+ * to Stephen Satchell, Satchell Evaluations and Chuck Forsberg,
+ * Omen Technology.
+ */
+
+#define updcrc(cp,crc) (crctab[((crc >> 8) & 255)] ^ (crc &lt;&lt; 8) ^ cp)
+
+
+-- END OF DOCUMENT ---
+
+   Sigi DK4NB @ DB0AAB.DEU.EU
+   Muenchen

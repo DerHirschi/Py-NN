@@ -1,4 +1,5 @@
 from ax25enc import get_call_str
+import config
 import time
 import os
 import pickle
@@ -23,7 +24,7 @@ class MH(object):
         }
         """
 
-    def mh_inp(self, rx_in, port_id):
+    def mh_inp(self, rx_in, port_id, axip_add=None):
         """
         rx_in = return address_str.replace('*', ''), ret, len(data_in)
         # Connections
@@ -51,7 +52,7 @@ class MH(object):
                 'byte_n': rx_in[2],  # N Bytes
                 'h_byte_n': 0,  # N Header Bytes
                 'rej_n': 0,  # N Header Bytes
-                # 'axip_add': axip_add,  # N Header Bytes
+                'axip_add': axip_add,  # N Header Bytes
             }
             if rx_in[1]['data'][1]:
                 self.calls[call_str]['h_byte_n'] = rx_in[1]['data'][1]
@@ -69,6 +70,14 @@ class MH(object):
                 self.calls[call_str]['h_byte_n'] += rx_in[1]['data'][1]
             if rx_in[1]['ctl']['flag'] == 'REJ':
                 self.calls[call_str]['rej_n'] += 1
+
+    def mh_get_data_fm_call(self, call_str):
+        return self.calls[call_str]
+
+    def mh_get_last_port_obj(self, call_str):
+        p_id = self.mh_get_data_fm_call(call_str)
+        p_id = p_id['port']
+        return config.ax_ports[p_id]
 
     def mh_out_cli(self):
 

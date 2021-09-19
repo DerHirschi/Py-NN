@@ -418,13 +418,13 @@ class CLIDefault(object):
         dest_call = inp[0]
         caller_call = ax.get_call_str(self.conncetion.dest)
         print('######## caller_call> ' + str(caller_call))
-        # TODO !!!!!!!!! Via list !!!!!!
         # via = [self.conncetion.call_str]
         via = []
         conn_via_list = list(self.conncetion.via)
         conn_via_list.reverse()
         # TODO !!!!!!! Ports
-
+        port = config.mh.mh_get_last_port_obj(dest_call)
+        print(port)
         for el in conn_via_list:
             via.append(ax.get_call_str(el))
         via.append(self.conncetion.call_str)

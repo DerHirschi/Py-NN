@@ -130,8 +130,6 @@ class AXPort(threading.Thread):
                     bytesAddressPair = axip.recvfrom(333)
                     b = bytesAddressPair[0]
                     address = bytesAddressPair[1]
-                    # clientMsg = "Message from Client:{}".format(b)
-                    # clientIP = "Client IP Address:{}".format(address)
 
                     if b:  # RX ###################################################################################
                         ###################################
@@ -151,7 +149,7 @@ class AXPort(threading.Thread):
                                 monitor.monitor(decode_inp[1], self.port_id)
                                 ############################
                                 # MH List and Statistics
-                                mh.mh_inp(decode_inp, self.port_id)
+                                mh.mh_inp(decode_inp, self.port_id, axip_add=address)
                                 self.timer_T0 = 0
                                 monitor.debug_out('################ DEC END ##############################')
                                 call_st = decode_inp[0].split(':')[1]
@@ -186,7 +184,6 @@ class AXPort(threading.Thread):
                                                       address, via, 5)
                                 else:
                                     if db.db[call_st].is_new:
-                                        # print('New User 222222')
                                         if self.bcast_stations:
                                             via = []
                                             # TODO .. need a func for this and above
@@ -206,21 +203,16 @@ class AXPort(threading.Thread):
                                 self.axip_clients.clients[call_st]['port'] = self.port_id
                                 self.axip_clients.clients[call_st]['lastsee'] = time.time()
                                 if self.axip_bcast:
-                                    # for ke in self.ax_conn.keys():
-                                    # axip.sendall(b)
                                     tmp_addr = [address]
                                     for ke in self.axip_clients.clients.keys():
                                         addr = self.axip_clients.clients[ke]['addr']
                                         if addr not in tmp_addr and not db.db[ke].is_new:
                                             print('## SEND RCV BCAST')
                                             axip.sendto(b, addr)
-                                            # time.sleep(0.1)
-                                            # print('Send 1> ' + str(addr))
                                             tmp_addr.append(addr)
 
                             else:
                                 monitor.debug_out("ERROR Dec> " + str(decode_inp), True)
-                            # pack = b''
                         else:
                             monitor.debug_out("ERROR CRC AXIP> " + str(b), True)
                             monitor.debug_out("_________________________________________________")
@@ -243,6 +235,9 @@ class AXPort(threading.Thread):
                         ###################################
                         dest_call = ax.get_call_str(self.tx_buffer[0][0]['dest'][0], self.tx_buffer[0][0]['dest'][1])
                         print('### DEST CALL > ' + str(dest_call))
+                        # TODO !!!!!!!!
+                        # TODO KeyError: 'CB0SAW'
+                        # TODO !!!!!!!!
                         if self.axip_bcast and not db.db[dest_call].is_new:
                             print('### SEND BCAST')
                             # axip.sendall(enc + calc_crc)
@@ -256,16 +251,9 @@ class AXPort(threading.Thread):
                                     tmp_addr.append(addr)
 
                         else:
-                            # print("Send AXIP TTO > " + str(address))
-                            ###########################
-                            # DEBUG !!!!!!!!!!!!!!!!!!!
-                            # UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-                            # UDPClientSocket.sendto(enc + calc_crc, address)
-                            ###########################
                             if address:
                                 axip.sendto(enc + calc_crc, address)
                         mon = ax.decode_ax25_frame(enc)
-                        # self.handle_rx(mon)  # Echo TX in Monitor
                         ############################
                         # Monitor TODO Better Monitor
                         monitor.monitor(mon[1], self.port_id)
@@ -279,58 +267,56 @@ class AXPort(threading.Thread):
             dw = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
             address = (self.dw_ip, self.dw_port)
             print('DW ADD: {}'.format(address))
-            # print('connecting to %s port %s' % server_address)
             try:
                 dw.connect(address)
                 dw.settimeout(0.5)
+                print(dw.gettimeout())
             except (OSError, ConnectionRefusedError, ConnectionError) as e:
                 monitor.debug_out('Error. Cant connect to Direwolf {}'. format(address), True)
                 monitor.debug_out('{}'. format(e), True)
 
             while not p_end:
+                b = ''
                 try:
                     b = dw.recv(333)
-                    if b:  # RX ############
-                        self.set_t0()
-                        dekiss_inp = ax.decode_ax25_frame(b[2:-1])  # DEKISS
-                        monitor.debug_out("----------------DW Data IN ----------------------")
-                        # decode_inp = ax.decode_ax25_frame(b)
-                        if dekiss_inp:
-                            self.handle_rx(dekiss_inp)
-                            ############################
-                            # Monitor TODO Better Monitor
-                            monitor.monitor(dekiss_inp[1], self.port_id)
-                            ############################
-                            # MH List and Statistics
-                            mh.mh_inp(dekiss_inp, self.port_id)
-                            self.timer_T0 = 0
-                            monitor.debug_out('################ DEC END ##############################')
-                        else:
-                            monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
-                        monitor.debug_out("_________________________________________________")
-                        # pack = b''
-                    self.handle_tx()  # TX #############################################################
-                    if self.tx_buffer:
-                        # monitor.debug_out(self.ax_conn)
-                        n = 0
-                        while self.tx_buffer and n < self.parm_MaxBufferTX:
-                            enc = ax.encode_ax25_frame(self.tx_buffer[0][0])
-                            # ax.send_kiss(ser, enc)
-                            # enc = bytes.fromhex(enc)
-                            mon = ax.decode_ax25_frame(bytes.fromhex(enc))
-                            enc = bytes.fromhex('c000' + enc + 'c0')
-                            dw.sendall(enc)
-                            # mon = ax.decode_ax25_frame(enc)
-                            # self.handle_rx(mon)  # Echo TX in Monitor
-                            ############################
-                            # Monitor TODO Better Monitor
-                            monitor.monitor(mon[1], self.port_id)
-                            monitor.debug_out("Out> " + str(mon))
-                            self.tx_buffer = self.tx_buffer[1:]
-                            n += 1
-
                 except socket.timeout:
-                    monitor.debug_out('Error. Direwolf connection Timeout{}'.format(address), True)
+                    pass
+
+                if b:  # RX ############
+                    self.set_t0()
+                    # print(b[:2])
+                    dekiss_inp = ax.decode_ax25_frame(b[2:-1])  # DEKISS
+                    monitor.debug_out("----------------DW Data IN ----------------------")
+                    # decode_inp = ax.decode_ax25_frame(b)
+                    if dekiss_inp:
+                        self.handle_rx(dekiss_inp)
+                        ############################
+                        # Monitor TODO Better Monitor
+                        monitor.monitor(dekiss_inp[1], self.port_id)
+                        ############################
+                        # MH List and Statistics
+                        mh.mh_inp(dekiss_inp, self.port_id)
+                        self.timer_T0 = 0
+                        monitor.debug_out('################ DEC END ##############################')
+                    else:
+                        monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
+                    monitor.debug_out("_________________________________________________")
+                    # pack = b''
+                self.handle_tx()  # TX #############################################################
+                if self.tx_buffer:
+                    # monitor.debug_out(self.ax_conn)
+                    n = 0
+                    while self.tx_buffer and n < self.parm_MaxBufferTX:
+                        enc = ax.encode_ax25_frame(self.tx_buffer[0][0])
+                        mon = ax.decode_ax25_frame(bytes.fromhex(enc))
+                        enc = bytes.fromhex('c000' + enc + 'c0')
+                        dw.sendall(enc)
+                        ############################
+                        # Monitor TODO Better Monitor
+                        monitor.monitor(mon[1], self.port_id)
+                        monitor.debug_out("Out> " + str(mon))
+                        self.tx_buffer = self.tx_buffer[1:]
+                        n += 1
 
             dw.close()
 
