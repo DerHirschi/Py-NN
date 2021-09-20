@@ -424,7 +424,7 @@ class CLIDefault(object):
         conn_via_list.reverse()
         # TODO !!!!!!! Ports
         port = config.mh.mh_get_last_port_obj(dest_call)
-        print(port)
+        # print(port)
         for el in conn_via_list:
             via.append(ax.get_call_str(el))
         via.append(self.conncetion.call_str)
@@ -449,7 +449,6 @@ class CLIDefault(object):
         print(via)
         print(conn_via_list)
 
-
         if conn_id not in self.conncetion.port.ax_conn.keys():
             print('>>>> 1 ' + str(self.conncetion.port.ax_Stations[self.conncetion.call_str]))
             print('**********************************')
@@ -466,6 +465,7 @@ class CLIDefault(object):
             self.conncetion.port.ax_conn[conn_id].dest = [dest[0], dest[1]]
             self.conncetion.port.ax_conn[conn_id].via = conn_via_list
             self.conncetion.port.ax_conn[conn_id].conn_id = conn_id
+            self.conncetion.port.ax_conn[conn_id].db_entry = config.db.get_entry(dest_call)
             self.conncetion.port.ax_conn[conn_id].port = self.conncetion.port
             self.conncetion.port.ax_conn[conn_id].stat = 'SABM'
             tx_pack = self.conncetion.port.get_tx_packet_item(conn_id=conn_id)
@@ -687,6 +687,8 @@ class CLIDefault(object):
         'X': (dummy, 'Dummy'),
     })
     """
+    def test11(self):
+        self.conncetion.tx_data += '\r'.join("%s: %s" % item for item in vars(self.conncetion.db_entry).items())
 
 
 ####################################################################
@@ -724,6 +726,7 @@ def init_cli(conn_obj):
     if 4 in conn_obj.cli_type:
         tmp_cmd_dict.update({
             'UD': (CLIDefault.show_own_db_ent, 'Show own (U)ser (D)atabse entry'),
+
         })
     # Test
     if 9 in conn_obj.cli_type:
@@ -732,6 +735,7 @@ def init_cli(conn_obj):
             'T2': (CLIDefault.testfnc2, 'Test Packet sender 2'),
             'PA': (CLIDefault.sh_parm, 'Show all (Pa)rameters'),
             'RT': (CLIDefault.rtt_parm, 'Show (RT)T Parameters'),
+            'UT': (CLIDefault.test11, 'Show own (U)ser (D)atabse entry Debug'),
         })
 
     conn_obj.cli.cmd_dic = dict(tmp_cmd_dict)

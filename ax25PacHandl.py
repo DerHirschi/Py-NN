@@ -235,20 +235,22 @@ class AXPort(threading.Thread):
                         ###################################
                         dest_call = ax.get_call_str(self.tx_buffer[0][0]['dest'][0], self.tx_buffer[0][0]['dest'][1])
                         print('### DEST CALL > ' + str(dest_call))
-                        # TODO !!!!!!!!
-                        # TODO KeyError: 'CB0SAW'
-                        # TODO !!!!!!!!
-                        if self.axip_bcast and not db.db[dest_call].is_new:
-                            print('### SEND BCAST')
-                            # axip.sendall(enc + calc_crc)
-                            tmp_addr = []
-                            for ke in self.axip_clients.clients.keys():
-                                # is_new = db.db[ke].is_new
-                                addr = self.axip_clients.clients[ke]['addr']
-                                if addr not in tmp_addr:
-                                    axip.sendto(enc + calc_crc, addr)
-                                    # time.sleep(0.1)
-                                    tmp_addr.append(addr)
+
+                        if dest_call in db.db.keys():
+                            if self.axip_bcast and not db.db[dest_call].is_new:
+                                print('### SEND BCAST')
+                                # axip.sendall(enc + calc_crc)
+                                tmp_addr = []
+                                for ke in self.axip_clients.clients.keys():
+                                    # is_new = db.db[ke].is_new
+                                    addr = self.axip_clients.clients[ke]['addr']
+                                    if addr not in tmp_addr:
+                                        axip.sendto(enc + calc_crc, addr)
+                                        # time.sleep(0.1)
+                                        tmp_addr.append(addr)
+                            else:
+                                if address:
+                                    axip.sendto(enc + calc_crc, address)
 
                         else:
                             if address:
@@ -823,6 +825,8 @@ class AXPort(threading.Thread):
         from_call, to_call = rx_inp['FROM'], rx_inp['TO']
         tmp.dest = [from_call[0], from_call[1]]
         tmp.db_entry = db.get_entry(ax.get_call_str(tmp.dest))
+        # print('DB-ENT- call > ' + str(tmp.dest))
+        # print('DB-ENT > ' + str(tmp.db_entry))
         via = []
         for el in rx_inp['via']:
             via.append([el[0], el[1], False])
@@ -875,16 +879,26 @@ class AXPort(threading.Thread):
             data = str(self.ax_conn[conn_id].tx_data)
             tr = False
         if data:
-            if self.ax_conn[conn_id].db_entry.max_pac:
-                maxFrm = int(self.ax_conn[conn_id].db_entry.max_pac)
+            if self.ax_conn[conn_id].db_entry is not None:
+                if self.ax_conn[conn_id].db_entry.max_pac:
+                    maxFrm = int(self.ax_conn[conn_id].db_entry.max_pac)
+                else:
+                    maxFrm = int(self.ax_conn[conn_id].ax25MaxFrame)
             else:
+                print('\r\n#### ID !!> {}\r\n'.format(conn_id))
+                print('\r\n#### !!> {}\r\n'.format(vars(self.ax_conn[conn_id])))
                 maxFrm = int(self.ax_conn[conn_id].ax25MaxFrame)
             free_txbuff = maxFrm - len(self.ax_conn[conn_id].noAck)
             for i in range(free_txbuff):
                 if data:
-                    if self.ax_conn[conn_id].db_entry.pac_len:
-                        paclen = int(self.ax_conn[conn_id].db_entry.pac_len)
+                    if self.ax_conn[conn_id].db_entry is not None:
+                        if self.ax_conn[conn_id].db_entry.pac_len:
+                            paclen = int(self.ax_conn[conn_id].db_entry.pac_len)
+                        else:
+                            paclen = int(self.ax_conn[conn_id].ax25PacLen)
                     else:
+                        print('\r\n#### ID !!> {}\r\n'.format(conn_id))
+                        print('\r\n#### !!> {}\r\n'.format(vars(self.ax_conn[conn_id])))
                         paclen = int(self.ax_conn[conn_id].ax25PacLen)
 
                     if self.I_TX(conn_id, data[:paclen]):
