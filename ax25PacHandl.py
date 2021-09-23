@@ -28,6 +28,7 @@ class AXPort(threading.Thread):
             #      ConnObj
             # }
         }
+        self.del_ax_conn = []
         self.port_id = port_conf_id
         self.port_typ = conf_ax_ports[port_conf_id]['typ']
         #######
@@ -672,8 +673,9 @@ class AXPort(threading.Thread):
     def DM_RX(self, conn_id):
         if self.ax_conn[conn_id].stat == 'SABM':
             print('#### Called Station is Busy ..... ######')
-        self.ax_conn[conn_id] = None
-        del self.ax_conn[conn_id]
+        # self.ax_conn[conn_id] = None
+        # del self.ax_conn[conn_id]
+        self.del_ax_conn.append(conn_id)
 
     def UA_RX(self, conn_id):
         self.ax_conn[conn_id].n2 = 1
@@ -688,8 +690,9 @@ class AXPort(threading.Thread):
             monitor.debug_out('#### Disc confirmed ..... ######')
             # monitor.debug_out('ax_conn[id][tx]> ' + str(ax_conn[conn_id].tx))
             print('#### Disc confirmed ..... ######')
-            self.ax_conn[conn_id] = None
-            del self.ax_conn[conn_id]
+            # self.ax_conn[conn_id] = None
+            self.del_ax_conn.append(conn_id)
+            # del self.ax_conn[conn_id]
 
     def DISC_TX(self, conn_id):
         monitor.debug_out('')
@@ -711,12 +714,14 @@ class AXPort(threading.Thread):
             self.ax_conn[conn_id].tx = [self.DISC_frm(conn_id)]
         elif self.ax_conn[conn_id].stat == 'SABM':
             self.tx_buffer.append([self.DISC_frm(conn_id), self.ax_conn[conn_id].axip_client])
-            self.ax_conn[conn_id] = None
-            del self.ax_conn[conn_id]
+            # self.ax_conn[conn_id] = None
+            self.del_ax_conn.append(conn_id)
+            # del self.ax_conn[conn_id]
         elif self.ax_conn[conn_id].stat == 'DISC' and self.ax_conn[conn_id].n2 > self.ax_conn[conn_id].ax25N2:
             self.tx_buffer.append([self.DISC_frm(conn_id), self.ax_conn[conn_id].axip_client])
-            self.ax_conn[conn_id] = None
-            del self.ax_conn[conn_id]
+            # self.ax_conn[conn_id] = None
+            self.del_ax_conn.append(conn_id)
+            # del self.ax_conn[conn_id]
 
     def DISC_RX(self, conn_id, rx_inp, axip_client=()):
         monitor.debug_out('')
@@ -728,16 +733,17 @@ class AXPort(threading.Thread):
         if conn_id in self.ax_conn.keys():
             self.tx_buffer.append([dict(self.UA_frm(rx_inp)), tuple(self.ax_conn[conn_id].axip_client)])       # UA_TX
             for k in list(self.ax_conn[conn_id].node_links.keys()):
-                self.ax_conn[conn_id].node_links[k].link.node_links[conn_id].disc()
+                self.ax_conn[conn_id].node_links[k].link.node_links[conn_id].disc_rx()
                 """
                 if self.ax_conn[conn_id].node_links[k].link.node_links[conn_id].caller_id != conn_id:
                     self.ax_conn[conn_id].node_links[k].link.node_links[conn_id].link.cli.state = 'DISC'
                     print('CLI DISC> ' + str(conn_id))
                 """
-                self.ax_conn[conn_id].node_links[k].disc()
+                self.ax_conn[conn_id].node_links[k].disc_rx()
             # TODO deketed connection cause problems after disco in non BCAST Mode
             # if self.port_typ != 'AXIP':
-            del self.ax_conn[conn_id]  # TODO AXIP non BCAST MODE
+            self.del_ax_conn.append(conn_id)
+            # del self.ax_conn[conn_id]  # TODO AXIP non BCAST MODE
         else:
             axip_client = db.get_entry(ax.get_call_str(rx_inp['FROM'][0], rx_inp['FROM'][1])).last_axip_addr
             self.tx_buffer.append([self.DM_frm(rx_inp), axip_client])
@@ -992,6 +998,10 @@ class AXPort(threading.Thread):
             #############################################
             # Crone ( Beacons )
             self.cron_main()
+            for el in list(self.del_ax_conn):
+                print('DEL>> ' + str(el))
+                del self.ax_conn[el]
+                self.del_ax_conn.remove(el)
             for conn_id in list(self.ax_conn.keys()):
                 # max_f = 0
                 #############################

@@ -79,6 +79,11 @@ class MH(object):
         p_id = p_id['port']
         return config.ax_ports[p_id]
 
+    def mh_get_last_ip(self, call_str):
+        out = self.mh_get_data_fm_call(call_str)
+        out = out['axip_add']
+        return out
+
     def mh_out_cli(self):
 
         out = ''

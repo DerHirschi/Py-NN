@@ -18,7 +18,6 @@ class CLIDefault(object):
         self.cmd_dic = {}
 
     def main(self):
-
         if self.stat != 'HOLD':
             if not self.stat:
                 # if not self.scr:
@@ -417,14 +416,15 @@ class CLIDefault(object):
             return
         dest_call = inp[0]
         caller_call = ax.get_call_str(self.conncetion.dest)
-        print('######## caller_call> ' + str(caller_call))
-        # via = [self.conncetion.call_str]
         via = []
         conn_via_list = list(self.conncetion.via)
         conn_via_list.reverse()
-        # TODO !!!!!!! Ports
         port = config.mh.mh_get_last_port_obj(dest_call)
-        # print(port)
+        if port.port_typ == 'AXIP':
+            axip_add = config.mh.mh_get_last_port_obj(dest_call)
+        else:
+            axip_add = None
+
         for el in conn_via_list:
             via.append(ax.get_call_str(el))
         via.append(self.conncetion.call_str)
@@ -449,54 +449,47 @@ class CLIDefault(object):
         print(via)
         print(conn_via_list)
 
-        if conn_id not in self.conncetion.port.ax_conn.keys():
-            print('>>>> 1 ' + str(self.conncetion.port.ax_Stations[self.conncetion.call_str]))
-            print('**********************************')
-            print('**********************************')
-            print('>>>> 2 ' + str(self.conncetion.port.ax_conn))
-            print('-----------------------------------')
-            self.conncetion.port.ax_conn[conn_id] = self.conncetion.port.ax_Stations[self.conncetion.call_str]()
-            print('>>>> 3 ' + str(self.conncetion.port.ax_conn))
-            print('**********************************')
-            print('**********************************')
-            print('>>>> 4 ' + str(self.conncetion.port.ax_conn[conn_id]))
-            self.conncetion.port.ax_conn[conn_id].call = self.conncetion.dest
+        if conn_id not in port.ax_conn.keys():
+            port.ax_conn[conn_id] = self.conncetion.port.ax_Stations[self.conncetion.call_str]()
+            port.ax_conn[conn_id].call = self.conncetion.dest
             dest = ax.get_ssid(dest_call)
-            self.conncetion.port.ax_conn[conn_id].dest = [dest[0], dest[1]]
-            self.conncetion.port.ax_conn[conn_id].via = conn_via_list
-            self.conncetion.port.ax_conn[conn_id].conn_id = conn_id
-            self.conncetion.port.ax_conn[conn_id].db_entry = config.db.get_entry(dest_call)
-            self.conncetion.port.ax_conn[conn_id].port = self.conncetion.port
-            self.conncetion.port.ax_conn[conn_id].stat = 'SABM'
-            tx_pack = self.conncetion.port.get_tx_packet_item(conn_id=conn_id)
+            port.ax_conn[conn_id].dest = [dest[0], dest[1]]
+            port.ax_conn[conn_id].via = conn_via_list
+            port.ax_conn[conn_id].conn_id = conn_id
+            port.ax_conn[conn_id].db_entry = config.db.get_entry(dest_call)
+            port.ax_conn[conn_id].port = port
+            port.ax_conn[conn_id].axip_client = axip_add
+
+            port.ax_conn[conn_id].stat = 'SABM'
+            tx_pack = port.get_tx_packet_item(conn_id=conn_id)
             tx_pack['typ'] = ['SABM', True]
             tx_pack['cmd'] = True
             #################
             # Debugging
-            deb = ''.join("%s: %s\r\n" % item for item in vars(self.conncetion.port.ax_conn[conn_id]).items())
-            print(deb)
+            # deb = ''.join("%s: %s\r\n" % item for item in vars(self.conncetion.port.ax_conn[conn_id]).items())
+            # print(deb)
             #################
 
-            self.conncetion.port.ax_conn[conn_id].tx = [tx_pack]
+            port.ax_conn[conn_id].tx = [tx_pack]
             # set_t1(conn_id)
-            self.conncetion.port.ax_conn[conn_id].port.set_t3(conn_id)
+            port.ax_conn[conn_id].port.set_t3(conn_id)
             # self.conncetion.port.set_t3(conn_id)
             ###############
             # Add Link
-            link = config.NodeLink(self.conncetion.port.ax_conn[conn_id], self.conncetion.conn_id)
+            link = config.NodeLink(port.ax_conn[conn_id], self.conncetion.conn_id)
             own_link = config.NodeLink(self.conncetion, self.conncetion.conn_id)
             # ADD DEST LINK
             self.conncetion.node_links[conn_id] = link
             # ADD OWN LINK TO DEST STATION
-            self.conncetion.port.ax_conn[conn_id].node_links[self.conncetion.conn_id] = own_link
+            port.ax_conn[conn_id].node_links[self.conncetion.conn_id] = own_link
             #####################
-            # Init Script Mode
+            # Init Node Mode
             self.stat = 'NODE'
-            link.link.cli.state = 'NODE'
+            link.link.cli.stat = 'NODE'
             ###############
             # self.conncetion.tx_data += '\r' + str(self.conncetion.port.ax_conn)
             self.conncetion.tx_data += '\r' + self.conncetion.promptvar
-            self.conncetion.tx_data += "Link setup..."
+            self.conncetion.tx_data += "Link setup... Port ({})".format(port.port_id)
         else:
             self.conncetion.tx_data += '\r' + 'Busy !! There is still a connection to this Station !!!'
 
@@ -514,8 +507,8 @@ class CLIDefault(object):
             )
             self.conncetion.tx_data += self.conncetion.promptvar
             return
-        #####################################################
-        # Multiple Links Possible. But should cause Problems
+        #############################################################################
+        # Multiple Links Possible (Convers). But should cause Problems at this state
         for k in list(self.conncetion.node_links.keys()):
             link = self.conncetion.node_links[k]
             ################
@@ -526,6 +519,14 @@ class CLIDefault(object):
                     self.conncetion.tx_data += '\r*** Connected to {}\r'.format(
                         ax.get_call_str(link.link.dest)
                     )
+                elif link.link.stat == 'SABM' and self.conncetion.rx_data:
+                    self.scr = []
+                    self.scr_run = False
+                    self.stat = ''
+                    link.disc_tx()
+                    del link
+
+                    self.conncetion.tx_data += self.conncetion.promptvar
             ################
             # Relay Data
             # elif link.stat == 'RR' and link.link.node_links[self.conncetion.conn_id].stat == 'RR':
@@ -546,7 +547,7 @@ class CLIDefault(object):
                 print(link.caller_id + ' ' + self.conncetion.conn_id)
                 if link.caller_id != self.conncetion.conn_id:
                     self.stat = 'DISC'
-                    link.link.cli.state = 'DISC'
+                    link.link.cli.stat = 'DISC'
                 del self.conncetion.node_links[k]
 
         self.conncetion.rx_data = []

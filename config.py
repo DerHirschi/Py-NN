@@ -280,7 +280,12 @@ class NodeLink(object):
         self.stat = 'SABM'
         self.caller_id = caller_id
 
-    def disc(self):
+    def disc_tx(self):
+        self.link.port.DISC_TX(self.link.conn_id)
+        self.link = None
+        self.stat = 'DISC'
+
+    def disc_rx(self):
         # del self.link
         self.link = None
         self.stat = 'DISC'
