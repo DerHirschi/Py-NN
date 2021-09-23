@@ -473,7 +473,6 @@ class CLIDefault(object):
             port.ax_conn[conn_id].tx = [tx_pack]
             # set_t1(conn_id)
             port.ax_conn[conn_id].port.set_t3(conn_id)
-            # self.conncetion.port.set_t3(conn_id)
             ###############
             # Add Link
             link = config.NodeLink(port.ax_conn[conn_id], self.conncetion.conn_id)
@@ -490,11 +489,10 @@ class CLIDefault(object):
             # self.conncetion.tx_data += '\r' + str(self.conncetion.port.ax_conn)
             self.conncetion.tx_data += '\r' + self.conncetion.promptvar
             self.conncetion.tx_data += "Link setup... Port ({})".format(port.port_id)
+            # self.conncetion.tx_bin = bytearray('Link setup... Port ({})'.format(port.port_id).encode()) + self.conncetion.tx_bin
         else:
             self.conncetion.tx_data += '\r' + 'Busy !! There is still a connection to this Station !!!'
 
-        # self.conncetion.tx_data += self.conncetion.promptvar
-        # self.station.port.DISC_TX(self.station.conn_id)
 
     def node_relay_data(self):
         # print(self.conncetion.conn_id)
@@ -514,11 +512,12 @@ class CLIDefault(object):
             ################
             # Status check
             if link.stat == 'SABM':
-                if link.link.stat == 'RR':
+                if link.link.stat == 'RR': # and not link.link.tx_data:
+                    if link.caller_id == self.conncetion.conn_id:
+                        self.conncetion.tx_bin = bytearray('\r*** Connected to {}\r'.format(
+                            ax.get_call_str(link.link.dest)).encode()
+                        ) + self.conncetion.tx_bin
                     link.stat = 'RR'
-                    self.conncetion.tx_data += '\r*** Connected to {}\r'.format(
-                        ax.get_call_str(link.link.dest)
-                    )
                 elif link.link.stat == 'SABM' and self.conncetion.rx_data:
                     self.scr = []
                     self.scr_run = False
@@ -530,12 +529,11 @@ class CLIDefault(object):
             ################
             # Relay Data
             # elif link.stat == 'RR' and link.link.node_links[self.conncetion.conn_id].stat == 'RR':
-            elif link.stat == 'RR':
+            elif link.stat == 'RR' and link.link.stat == 'RR':
                 # RX > TX
                 if link.link.rx_data:
                     tmp = list(link.link.rx_data)
                     for el in tmp:
-                        # print('NODE> ' + str(el))
                         self.conncetion.tx_bin += el[0]
                         link.link.rx_data.remove(el)
                 # TX > RX
@@ -545,6 +543,8 @@ class CLIDefault(object):
             # elif link.stat == 'DISC' or link.link.node_links[self.conncetion.conn_id].stat == 'DISC':
             elif link.stat == 'DISC':
                 print(link.caller_id + ' ' + self.conncetion.conn_id)
+                # self.conncetion.port.old_ax_conn[ax.reverse_addr_str(el)] = time.time() + ((float(self.ax_conn[el].parm_RTT) / 100) * 2) + 5
+                # link.link.port.old_ax_conn[ax.reverse_addr_str(el)] = time.time() + ((float(self.ax_conn[el].parm_RTT) / 100) * 2) + 5
                 if link.caller_id != self.conncetion.conn_id:
                     self.stat = 'DISC'
                     link.link.cli.stat = 'DISC'

@@ -29,6 +29,9 @@ class AXPort(threading.Thread):
             # }
         }
         self.del_ax_conn = []
+        self.old_ax_conn = {
+            # 'addrStr': time.time() + (self.ax_conn[el].parm_RTT * 2)
+        }
         self.port_id = port_conf_id
         self.port_typ = conf_ax_ports[port_conf_id]['typ']
         #######
@@ -99,6 +102,9 @@ class AXPort(threading.Thread):
                             monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
                         monitor.debug_out("_________________________________________________")
                         pack = b''
+                #############################################
+                # Crone
+                self.cron_main()
                 self.handle_tx()  # TX #############################################################
                 if self.tx_buffer:
                     # monitor.debug_out(self.ax_conn)
@@ -220,7 +226,9 @@ class AXPort(threading.Thread):
 
                 except socket.timeout:
                     pass
-
+                #############################################
+                # Crone
+                self.cron_main()
                 self.handle_tx()  # TX #############################################################
                 if self.tx_buffer:
                     # monitor.debug_out(self.ax_conn)
@@ -305,6 +313,9 @@ class AXPort(threading.Thread):
                         monitor.debug_out("ERROR Dec> " + str(dekiss_inp), True)
                     monitor.debug_out("_________________________________________________")
                     # pack = b''
+                #############################################
+                # Crone
+                self.cron_main()
                 self.handle_tx()  # TX #############################################################
                 if self.tx_buffer:
                     # monitor.debug_out(self.ax_conn)
@@ -433,7 +444,9 @@ class AXPort(threading.Thread):
             for v in rx_inp[1]['via']:
                 # if not v[2] and (any(digi_calls) in [v[0], v[1]]):
                 c_str = ax.get_call_str(v[0], v[1])
-                if not v[2] and (c_str in digi_calls.keys()):
+                # print(self.old_ax_conn.keys())
+                if not v[2] and (c_str in digi_calls.keys()) and \
+                        rx_inp[0] not in self.old_ax_conn.keys():
                     print('DIGI > ' + str(rx_inp[0]))
                     v[2] = True
                     port = digi_calls[c_str]
@@ -962,6 +975,7 @@ class AXPort(threading.Thread):
             print(str(cron_pacs))
 
     def cron_main(self):
+        # Crone Beacon or Packets
         for k in list(cron_pacs.keys()):
             del_ind = []
             for el in cron_pacs[k]:
@@ -983,7 +997,18 @@ class AXPort(threading.Thread):
                             el[6] -= 1
                 for ind in del_ind:
                     cron_pacs[k].remove(ind)
-
+        # Remove Disc connections
+        for el in list(self.del_ax_conn):
+            print('DEL>> ' + str(el))
+            self.old_ax_conn[el] = time.time() + (float(self.ax_conn[el].parm_RTT) * 2)
+            self.old_ax_conn[ax.reverse_addr_str(el)] = time.time() + ((float(self.ax_conn[el].parm_RTT) / 100) * 2) + 5
+            print('DEL TO> ' + str(self.old_ax_conn))
+            del self.ax_conn[el]
+            self.del_ax_conn.remove(el)
+        # Time Out old Connections
+        for el in list(self.old_ax_conn.keys()):
+            if time.time() > self.old_ax_conn[el]:
+                del self.old_ax_conn[el]
     #############################################################################
     # TX
     #############################################################################
@@ -996,12 +1021,9 @@ class AXPort(threading.Thread):
         # Check T0
         if time.time() > self.timer_T0 or self.timer_T0 == 0:
             #############################################
-            # Crone ( Beacons )
-            self.cron_main()
-            for el in list(self.del_ax_conn):
-                print('DEL>> ' + str(el))
-                del self.ax_conn[el]
-                self.del_ax_conn.remove(el)
+            # Crone
+            # self.cron_main()
+
             for conn_id in list(self.ax_conn.keys()):
                 # max_f = 0
                 #############################
