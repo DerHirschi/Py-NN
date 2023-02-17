@@ -8,3 +8,6 @@ I just wanted to see if I could decode AX.25 myself, but now it looks like it ca
 At this time it's just a bunch of testing stuff.
 
 README will be updated soon.
+
+
+New Version from scratch > https://github.com/DerHirschi/AX25_POPT
